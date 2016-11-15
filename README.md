@@ -1,4 +1,4 @@
-Checkout Instructions
+#!/bin/bash
 phase2-tutorial/CMSSW_8_1_0_pre12/src/RecoTauTag/phase2Taus
 mkdir phase2-tutorial
 cmsrel CMSSW_8_1_0_pre12
