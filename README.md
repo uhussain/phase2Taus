@@ -1,3 +1,4 @@
+```
 #!/bin/bash
 phase2-tutorial/CMSSW_8_1_0_pre12/src/RecoTauTag/phase2Taus
 mkdir phase2-tutorial
@@ -9,3 +10,4 @@ git clone
 scram b -j 5
 
 #.... wait for the build
+```
