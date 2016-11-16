@@ -8,8 +8,8 @@ cmsenv
 git cms-init
 git cms-addpkg RecoTauTag/RecoTau
 cd RecoTauTag
-cd ../
 git clone git@github.com:isobelojalvo/phase2Taus.git
+cd ../
 scram b -j 5
 cd RecoTauTag/phase2Taus/test
 cmsRun make_ntuple_from_miniaod.py
