@@ -1,7 +1,7 @@
 ```
 #!/bin/bash
-mkdir phase2-tutorial
-cd phase2-tutorial
+mkdir phase2-tutorial-taus
+cd phase2-tutorial-taus
 cmsrel CMSSW_8_1_0_pre12
 cd CMSSW_8_1_0_pre12/src
 git cms-init
