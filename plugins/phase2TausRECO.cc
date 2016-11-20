@@ -79,10 +79,10 @@ class phase2Taus : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 
-   private:
+private:
   edm::EDGetTokenT<reco::VertexCollection> vtxToken_;
-      edm::EDGetTokenT<pat::TauCollection> tauToken_;
-      std::string tauID_;
+  edm::EDGetTokenT<pat::TauCollection> tauToken_;
+  std::string tauID_;
   edm::EDGetTokenT<std::vector <reco::GenParticle> > prunedGenToken_;
 
   TTree* tree;
@@ -162,11 +162,23 @@ void
 phase2Taus::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
-   edm::Handle<reco::VertexCollection> vertices;
-   iEvent.getByToken(vtxToken_, vertices);
+
+   Handle<reco::VertexCollection> vertices;
+   evt.getByLabel("offlinePrimaryVertices", vertices);
    nvtx_=vertices->size();
+
    edm::Handle<pat::TauCollection> taus;
    iEvent.getByToken(tauToken_, taus);
+
+   Handle<reco::PFTauDiscriminator> discriminator;
+   evt.getByLabel(discriminatorSrc_, discriminator);
+
+   Handle<reco::PFTauDiscriminator> DMF; 
+   evt.getByLabel("hpsPFTauDiscriminationByDecayModeFinding",DMF);
+
+   std::vector<const reco::GenParticle*> GenObjects = getGenParticleCollection(evt);
+   if (GenObjects.size()!=0) return;
+
    edm::Handle<std::vector<reco::GenParticle> > genParticles;
    iEvent.getByToken(prunedGenToken_, genParticles);
    std::vector<const reco::GenParticle*> GenTaus;
@@ -184,33 +196,33 @@ phase2Taus::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       genTauPt_=-10;
       genTauEta_=-10;
      
-     nvtx_=-10;
-     dmf_=-10;
-     goodReco_=0;
-     genTauMatch_=0;
-
-     std::vector<const reco::GenParticle*> genTauDaughters;
-     findDaughters(genTau, genTauDaughters);
-     reco::Candidate::LorentzVector genTauVis = GetVisibleP4(genTauDaughters);
-     genTauPt_  = (float) genTauVis.pt();
-     genTauEta_ = (float) genTauVis.eta();
-
-     //std::cout<<" pt "<<genTauPt_<<" eta "<<genTauEta_<<std::endl;
-     for(const pat::Tau &tau : *taus){
-       if (reco::deltaR(tau.eta(),tau.phi(),genTauVis.eta(),genTauVis.phi()) < 0.5 && tau.tauID("decayModeFinding")>0.5){
-	 genTauMatch_ = 1;
-	 tauPt_  = tau.pt();
-	 tauEta_ = tau.eta();
-	 dmf_ = tau.decayMode();
-
-	 goodReco_ = (bool) tau.tauID(tauID_) >0.5;
-
-	 break;
-       }
-     }
-     tree->Fill(); 
+      nvtx_=-10;
+      dmf_=-10;
+      goodReco_=0;
+      genTauMatch_=0;
+      
+      std::vector<const reco::GenParticle*> genTauDaughters;
+      findDaughters(genTau, genTauDaughters);
+      reco::Candidate::LorentzVector genTauVis = GetVisibleP4(genTauDaughters);
+      genTauPt_  = (float) genTauVis.pt();
+      genTauEta_ = (float) genTauVis.eta();
+      
+      //std::cout<<" pt "<<genTauPt_<<" eta "<<genTauEta_<<std::endl;
+      for(const pat::Tau &tau : *taus){
+	if (reco::deltaR(tau.eta(),tau.phi(),genTauVis.eta(),genTauVis.phi()) < 0.5 && tau.tauID("decayModeFinding")>0.5){
+	  genTauMatch_ = 1;
+	  tauPt_  = tau.pt();
+	  tauEta_ = tau.eta();
+	  dmf_ = tau.decayMode();
+	  
+	  goodReco_ = (bool) tau.tauID(tauID_) >0.5;
+	  
+	  break;
+	}
+      }
+      tree->Fill(); 
    }
-
+   
 }
 
 
