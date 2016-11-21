@@ -1,4 +1,5 @@
 ```
+SCRAM_ARCH=slc6_amd64_gcc600
 mkdir phase2-tutorial-taus
 cd phase2-tutorial-taus
 cmsrel CMSSW_8_1_0_pre12
