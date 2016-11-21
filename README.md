@@ -8,7 +8,7 @@ cmsenv
 git cms-init
 git cms-addpkg RecoTauTag/RecoTau
 cd RecoTauTag
-git clone git@github.com:isobelojalvo/phase2Taus.git
+git clone --recursive -b exerciseNov16 https://github.com/isobelojalvo/phase2Taus.git
 cd ../
 scram b -j 5
 cd RecoTauTag/phase2Taus/test
