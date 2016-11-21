@@ -1,3 +1,17 @@
+=======================================================
+SCRAM_ARCH=slc6_amd64_gcc600
+=======================================================
+mkdir phase2-tutorial-taus2
+=======================================================
+cd phase2-tutorial-taus2
+=======================================================
+cmsrel  CMSSW_8_1_0_pre12
+WARNING: In non-interactive mode release checks e.g. deprecated releases, production architectures are disabled.
+=======================================================
+cd CMSSW_8_1_0_pre12/src
+=======================================================
+cmsenv
+=======================================================
 From https://github.com/isobelojalvo/cmssw
  * [new branch]      CMSSW_4_1_X -> my-cmssw/CMSSW_4_1_X
  * [new branch]      CMSSW_4_4_X -> my-cmssw/CMSSW_4_4_X
@@ -10,6 +24,7 @@ From https://github.com/isobelojalvo/cmssw
  * [new branch]      CMSSW_7_0_BOOSTIO_X -> my-cmssw/CMSSW_7_0_BOOSTIO_X
  * [new branch]      CMSSW_7_0_GEANT10_X -> my-cmssw/CMSSW_7_0_GEANT10_X
  * [new branch]      CMSSW_7_0_ROOT6_X -> my-You are on branch from-CMSSW_8_1_0_pre12
+ ...
 =======================================================
 git cms-addpkg RecoTauTag/RecoTau
 Checking out packages
