@@ -87,7 +87,7 @@ private:
   edm::EDGetTokenT<reco::PFTauCollection>      tauToken_;
   edm::EDGetTokenT<reco::PFJetCollection>    jetSrc_;
   edm::EDGetTokenT<reco::PFTauDiscriminator> discriminatorSrc_;
-  //edm::EDGetTokenT<std::vector <reco::GenParticle> > prunedGenToken_;
+  edm::EDGetTokenT<std::vector <reco::GenParticle> > genToken_;
 
   std::string tauID_;
 
@@ -106,7 +106,10 @@ private:
   reco::Candidate::LorentzVector GetVisibleP4(std::vector<const reco::GenParticle*>& daughters);
   void findDaughters(const reco::GenParticle* mother, std::vector<const reco::GenParticle*>& daughters);
   bool isNeutrino(const reco::Candidate* daughter);
-  bool initializeTrackTiming( edm::Handle<edm::View<reco::Track> > *tracks, reco::VertexCollection *vtxs, edm::ValueMap<float> *times, edm::ValueMap<float> *timeResos);
+  bool initializeTrackTiming( edm::Handle<edm::View<reco::Track> > tracks, 
+			      edm::Handle<reco::VertexCollection> &vtxs, 
+			      edm::Handle<edm::ValueMap<float> > times, 
+			      edm::Handle<edm::ValueMap<float> > timeResos);
 
   virtual void beginJob() override;
   virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
@@ -134,8 +137,8 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
   vtxToken_        (consumes<reco::VertexCollection>          (iConfig.getParameter<edm::InputTag>("vertices")      )),
   tauToken_        (consumes<reco::PFTauCollection>             (iConfig.getParameter<edm::InputTag>("taus")          )),
   jetSrc_          (consumes<reco::PFJetCollection>           (iConfig.getParameter<edm::InputTag>("jets")          )),
-  discriminatorSrc_(consumes<reco::PFTauDiscriminator>        (iConfig.getParameter<edm::InputTag>("discriminator") ))
-  //prunedGenToken_  (consumes<std::vector<reco::GenParticle> > (iConfig.getParameter<edm::InputTag>("genParticles")  ))
+  discriminatorSrc_(consumes<reco::PFTauDiscriminator>        (iConfig.getParameter<edm::InputTag>("discriminator") )),
+  genToken_  (consumes<std::vector<reco::GenParticle> > (iConfig.getParameter<edm::InputTag>("genParticles")  ))
 {
   consumes<edm::View<reco::Track> >(tracksTag_);
   consumes<edm::ValueMap<float> >(timesTag_);
@@ -196,26 +199,26 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    Handle<reco::PFJetCollection> jetObjects;
    iEvent.getByToken(jetSrc_, jetObjects);
 
-   edm::Handle<pat::PFTauCollection> taus;
+   edm::Handle<reco::PFTauCollection> taus;
    iEvent.getByToken(tauToken_, taus);
 
    Handle<reco::PFTauDiscriminator> discriminator;
    iEvent.getByToken(discriminatorSrc_, discriminator);
 
    Handle<reco::PFTauDiscriminator> DMF; 
-   iEvent.getByToken("hpsPFTauDiscriminationByDecayModeFindingOldDMs",DMF);
+   iEvent.getByLabel("hpsPFTauDiscriminationByDecayModeFindingOldDMs",DMF);
 
-   std::vector<const reco::GenParticle*> GenObjects = getGenParticleCollection(iEvent);
-   if (GenObjects.size()!=0) return;
+   //std::vector<const reco::GenParticle*> GenObjects = getGenParticleCollection(iEvent);
+   //if (GenObjects.size()!=0) return;
 
-   //edm::Handle<std::vector<reco::GenParticle> > genParticles;
-   //iEvent.getByToken(prunedGenToken_, genParticles);
+   edm::Handle<std::vector<reco::GenParticle> > genParticles;
+   iEvent.getByToken(genToken_, genParticles);
 
    //initialize timing objects
    initializeTrackTiming( tracks, vtxs, times, timeResos);
 
    std::vector<const reco::GenParticle*> GenTaus;
-   for(std::vector<reco::GenParticle>::const_iterator genParticle = GenObjects->begin(); genParticle != GenObjects->end(); genParticle++){
+   for(std::vector<reco::GenParticle>::const_iterator genParticle = genParticles->begin(); genParticle != genParticles->end(); genParticle++){
      if(TMath::Abs(genParticle->pdgId()) == 15) GenTaus.push_back(&(*genParticle));
      //if(TMath::Abs(genParticle->pdgId()) == 11) GenEles.push_back(&(*genParticle));
      //if(TMath::Abs(genParticle->pdgId()) == 13) GenMus.push_back(&(*genParticle));
@@ -248,7 +251,6 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       genTauEta_ = (float) genTauVis.eta();
       
       //std::cout<<" pt "<<genTauPt_<<" eta "<<genTauEta_<<std::endl;
-      //for(const pat::Tau &tau : *taus){
       for(const reco::PFTau tau : goodTaus){
 	if (reco::deltaR(tau.eta(),tau.phi(),genTauVis.eta(),genTauVis.phi()) < 0.5){
 	  genTauMatch_ = 1;
@@ -270,9 +272,6 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	      vtx_index = i;
 	    }
 	  }
-    
-
-
 	  break;
 	}
       }
@@ -334,10 +333,10 @@ bool phase2TausRECO::isNeutrino(const reco::Candidate* daughter)
   return (TMath::Abs(daughter->pdgId()) == 12 || TMath::Abs(daughter->pdgId()) == 14 || TMath::Abs(daughter->pdgId()) == 16 || TMath::Abs(daughter->pdgId()) == 18);
 }
 
-bool phase2TausRECO::initializeTrackTiming( edm::Handle<edm::View<reco::Track> >*tracks, 
-						reco::VertexCollection *vtxs, 
-						edm::ValueMap<float>   *times, 
-						edm::ValueMap<float>   *timeResos)
+bool phase2TausRECO::initializeTrackTiming( edm::Handle<edm::View<reco::Track> > tracks, 
+					    edm::Handle<reco::VertexCollection> &vtxs, 
+					    edm::Handle<edm::ValueMap<float> >  times, 
+					    edm::Handle<edm::ValueMap<float> >  timeResos)
 {
   //make a map of vertices to track refs within cuts
   std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6 ;
