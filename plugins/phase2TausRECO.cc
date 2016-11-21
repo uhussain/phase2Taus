@@ -34,6 +34,7 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
+/*
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/PatCandidates/interface/PackedGenParticle.h"
 #include "DataFormats/PatCandidates/interface/Electron.h"
@@ -42,6 +43,7 @@
 #include "DataFormats/PatCandidates/interface/Tau.h"
 #include "DataFormats/PatCandidates/interface/Jet.h"
 #include "DataFormats/PatCandidates/interface/MET.h"
+*/
 
 #include "DataFormats/Provenance/interface/EventAuxiliary.h"
 #include "DataFormats/TauReco/interface/PFTauDiscriminator.h"
@@ -82,7 +84,7 @@ private:
   edm::InputTag  timesTag_;
   edm::InputTag  timeResosTag_;
   edm::EDGetTokenT<reco::VertexCollection>   vtxToken_;
-  edm::EDGetTokenT<reco::TauCollection>      tauToken_;
+  edm::EDGetTokenT<reco::PFTauCollection>      tauToken_;
   edm::EDGetTokenT<reco::PFJetCollection>    jetSrc_;
   edm::EDGetTokenT<reco::PFTauDiscriminator> discriminatorSrc_;
   //edm::EDGetTokenT<std::vector <reco::GenParticle> > prunedGenToken_;
@@ -130,7 +132,7 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
   timesTag_        ("times"),
   timeResosTag_    ("timesResos"),
   vtxToken_        (consumes<reco::VertexCollection>          (iConfig.getParameter<edm::InputTag>("vertices")      )),
-  tauToken_        (consumes<reco::TauCollection>             (iConfig.getParameter<edm::InputTag>("taus")          )),
+  tauToken_        (consumes<reco::PFTauCollection>             (iConfig.getParameter<edm::InputTag>("taus")          )),
   jetSrc_          (consumes<reco::PFJetCollection>           (iConfig.getParameter<edm::InputTag>("jets")          )),
   discriminatorSrc_(consumes<reco::PFTauDiscriminator>        (iConfig.getParameter<edm::InputTag>("discriminator") ))
   //prunedGenToken_  (consumes<std::vector<reco::GenParticle> > (iConfig.getParameter<edm::InputTag>("genParticles")  ))
@@ -187,14 +189,14 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    iEvent.getByLabel(timeResosTag_,timeResos);
 
    Handle<reco::VertexCollection> vtxs;
-   iEvent.getByToken("offlinePrimaryVertices", vtxs);
+   iEvent.getByToken(vtxToken_, vtxs);
    nvtx_ = vtxs->size();
 
    //get objects
    Handle<reco::PFJetCollection> jetObjects;
    iEvent.getByToken(jetSrc_, jetObjects);
 
-   edm::Handle<pat::TauCollection> taus;
+   edm::Handle<pat::PFTauCollection> taus;
    iEvent.getByToken(tauToken_, taus);
 
    Handle<reco::PFTauDiscriminator> discriminator;
