@@ -1,4 +1,4 @@
-#cmsRun runTauEfficiency.py inputFiles=/store/relval/CMSSW_8_1_0_pre12/RelValZTT_14TeV/MINIAODSIM/81X_mcRun2_asymptotic_v8_2023D1-v1/00000/4CC5E70D-8B8F-E611-8079-0CC47A4D76D0.root
+#cmsRun runTauTiming.py inputFiles=/store/relval/CMSSW_8_1_0_pre12/RelValZTT_14TeV/MINIAODSIM/81X_mcRun2_asymptotic_v8_2023D1-v1/00000/4CC5E70D-8B8F-E611-8079-0CC47A4D76D0.root
 
 import FWCore.ParameterSet.Config as cms
 from FWCore.ParameterSet.VarParsing import VarParsing
@@ -32,14 +32,17 @@ process.source = cms.Source("PoolSource",
 ##################################################
 # Main
 process.cutBased = cms.EDAnalyzer("phase2TausRECO",
-    tracks             = cms.InputTag("generalTracks"),#checkme
-    times              = cms.InputTag(""),
-    timesResos         = cms.InputTag(""),
-    vertices           = cms.InputTag("offlineSlimmedPrimaryVertices4D"),#check me
+    #tracks             = cms.InputTag("generalTracks"),#checkme
+    #times              = cms.InputTag("trackTimeValueMapProducer",
+    #                                  "generalTracksConfigurableFlatResolutionModel"),
+    #timesResos         = cms.InputTag("trackTimeValueMapProducer",
+    #                                  "generalTracksConfigurableFlatResolutionModelResolution"),
+    vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
     taus               = cms.InputTag("hpsPFTauProducer"),
     jets               = cms.InputTag("ak4PFJetsCHS"),
-    discrimininator    = cms.InputTag("byCombinedIsolationDeltaBetaCorrRaw3Hits")
-#    genParticles       = cms.InputTag("prunedGenParticles")
+    discriminator      = cms.InputTag("hpsPFTauDiscriminationByIsolationMVArun2v1DBoldDMwLTraw"),
+    dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
+    genParticles       = cms.InputTag("genParticles")
 )
 
 #process.MVA = cms.EDAnalyzer("phase2Taus",

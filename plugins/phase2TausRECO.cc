@@ -80,13 +80,15 @@ class phase2TausRECO : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
 
 
 private:
+  //edm::EDGetTokenT<std::vector<reco::Track> > tracksTag_;
   edm::InputTag  tracksTag_;
   edm::InputTag  timesTag_;
   edm::InputTag  timeResosTag_;
   edm::EDGetTokenT<reco::VertexCollection>   vtxToken_;
-  edm::EDGetTokenT<reco::PFTauCollection>      tauToken_;
+  edm::EDGetTokenT<reco::PFTauCollection>    tauToken_;
   edm::EDGetTokenT<reco::PFJetCollection>    jetSrc_;
   edm::EDGetTokenT<reco::PFTauDiscriminator> discriminatorSrc_;
+  edm::EDGetTokenT<reco::PFTauDiscriminator> dmfToken_;
   edm::EDGetTokenT<std::vector <reco::GenParticle> > genToken_;
 
   std::string tauID_;
@@ -131,13 +133,15 @@ private:
 // constructors and destructor
 //
 phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
-  tracksTag_       ("tracks"),
-  timesTag_        ("times"),
-  timeResosTag_    ("timesResos"),
-  vtxToken_        (consumes<reco::VertexCollection>          (iConfig.getParameter<edm::InputTag>("vertices")      )),
-  tauToken_        (consumes<reco::PFTauCollection>             (iConfig.getParameter<edm::InputTag>("taus")          )),
-  jetSrc_          (consumes<reco::PFJetCollection>           (iConfig.getParameter<edm::InputTag>("jets")          )),
-  discriminatorSrc_(consumes<reco::PFTauDiscriminator>        (iConfig.getParameter<edm::InputTag>("discriminator") )),
+  //tracksTag_       (consumes<std::vector<reco::Track> >  (iConfig.getParameter<edm::InputTag>("tracks"))),
+  tracksTag_       ("generalTracks",""),
+  timesTag_        ("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModel"),
+  timeResosTag_    ("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModelResolution"),
+  vtxToken_        (consumes<reco::VertexCollection>   (iConfig.getParameter<edm::InputTag>("vertices")      )),
+  tauToken_        (consumes<reco::PFTauCollection>     (iConfig.getParameter<edm::InputTag>("taus")          )),
+  jetSrc_          (consumes<reco::PFJetCollection>     (iConfig.getParameter<edm::InputTag>("jets")          )),
+  discriminatorSrc_(consumes<reco::PFTauDiscriminator>  (iConfig.getParameter<edm::InputTag>("discriminator") )),
+  dmfToken_        (consumes<reco::PFTauDiscriminator>  (iConfig.getParameter<edm::InputTag>("dmf") )),
   genToken_  (consumes<std::vector<reco::GenParticle> > (iConfig.getParameter<edm::InputTag>("genParticles")  ))
 {
   consumes<edm::View<reco::Track> >(tracksTag_);
@@ -182,7 +186,8 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
    //get track colletions
-   edm::Handle<edm::View<reco::Track> > tracks;
+
+   edm::Handle<edm::View<reco::Track> >tracks;
    iEvent.getByLabel(tracksTag_,tracks);
 
    edm::Handle<edm::ValueMap<float> > times;
@@ -206,7 +211,8 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    iEvent.getByToken(discriminatorSrc_, discriminator);
 
    Handle<reco::PFTauDiscriminator> DMF; 
-   iEvent.getByLabel("hpsPFTauDiscriminationByDecayModeFindingOldDMs",DMF);
+   //iEvent.getByLabel("hpsPFTauDiscriminationByDecayModeFindingOldDMs",DMF);
+   iEvent.getByToken(dmfToken_,DMF);
 
    //std::vector<const reco::GenParticle*> GenObjects = getGenParticleCollection(iEvent);
    //if (GenObjects.size()!=0) return;
@@ -341,6 +347,7 @@ bool phase2TausRECO::initializeTrackTiming( edm::Handle<edm::View<reco::Track> >
   //make a map of vertices to track refs within cuts
   std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6 ;
   for( unsigned i = 0; i < tracks->size(); ++i ) {
+  //for( auto ref : tracks ) {
     auto ref = tracks->refAt(i);
     const float time = (*times)[ref];
     const float timeReso = (*timeResos)[ref] != 0.f ? (*timeResos)[ref] : 0.170f;
