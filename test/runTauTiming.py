@@ -6,13 +6,15 @@ from FWCore.ParameterSet.VarParsing import VarParsing
 #input cmsRun options
 options = VarParsing ('analysis')
 
-options.outputFile = "MiniAOD_effi_80x_DYtoLL.root"
+options.outputFile = "timing-ttbar.root"
+
+options.register('inputFileList', '', VarParsing.multiplicity.singleton, VarParsing.varType.string, 'Manual file list input, will query DAS if empty')
 options.parseArguments()
 
 #name the process
 process = cms.Process("TreeProducerFromMiniAOD")
 process.load('FWCore/MessageService/MessageLogger_cfi')
-process.MessageLogger.cerr.FwkReport.reportEvery = 1000;
+process.MessageLogger.cerr.FwkReport.reportEvery = 10;
 process.MessageLogger.cerr.threshold = cms.untracked.string('INFO')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
@@ -24,23 +26,103 @@ process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(-1)
 )
 
+if len(options.inputFileList) > 0 :
+    with open(options.inputFileList) as f :
+        inputFiles = list((line.strip() for line in f))
+else :
+    inputFiles = cms.untracked.vstring(options.inputFiles)
+    
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring(options.inputFiles),
+    fileNames = cms.untracked.vstring(inputFiles),
 )
 
 
 ##################################################
 # Main
-process.cutBased = cms.EDAnalyzer("phase2TausRECO",
-    #tracks             = cms.InputTag("generalTracks"),#checkme
-    #times              = cms.InputTag("trackTimeValueMapProducer",
-    #                                  "generalTracksConfigurableFlatResolutionModel"),
-    #timesResos         = cms.InputTag("trackTimeValueMapProducer",
-    #                                  "generalTracksConfigurableFlatResolutionModelResolution"),
+process.VLooseMVA = cms.EDAnalyzer("phase2TausRECO",
     vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
     taus               = cms.InputTag("hpsPFTauProducer"),
     jets               = cms.InputTag("ak4PFJetsCHS"),
-    discriminator      = cms.InputTag("hpsPFTauDiscriminationByIsolationMVArun2v1DBoldDMwLTraw"),
+    discriminator      = cms.InputTag("hpsPFTauDiscriminationByVLooseIsolationMVArun2v1DBoldDMwLT"),
+    cutByDiscriminator = cms.untracked.bool(True),
+    hpsPFTauChargedIsoPtSum = cms.InputTag("hpsPFTauChargedIsoPtSum"),
+    dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
+    genParticles       = cms.InputTag("genParticles")
+)
+
+process.LooseMVA = cms.EDAnalyzer("phase2TausRECO",
+    vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
+    taus               = cms.InputTag("hpsPFTauProducer"),
+    jets               = cms.InputTag("ak4PFJetsCHS"),
+    discriminator      = cms.InputTag("hpsPFTauDiscriminationByLooseIsolationMVArun2v1DBoldDMwLT"),
+    cutByDiscriminator = cms.untracked.bool(True),
+    hpsPFTauChargedIsoPtSum = cms.InputTag("hpsPFTauChargedIsoPtSum"),
+    dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
+    genParticles       = cms.InputTag("genParticles")
+)
+
+process.MediumMVA = cms.EDAnalyzer("phase2TausRECO",
+    vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
+    taus               = cms.InputTag("hpsPFTauProducer"),
+    jets               = cms.InputTag("ak4PFJetsCHS"),
+    discriminator      = cms.InputTag("hpsPFTauDiscriminationByMediumIsolationMVArun2v1DBoldDMwLT"),
+    cutByDiscriminator = cms.untracked.bool(True),
+    hpsPFTauChargedIsoPtSum = cms.InputTag("hpsPFTauChargedIsoPtSum"),
+    dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
+    genParticles       = cms.InputTag("genParticles")
+)
+
+process.TightMVA = cms.EDAnalyzer("phase2TausRECO",
+    vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
+    taus               = cms.InputTag("hpsPFTauProducer"),
+    jets               = cms.InputTag("ak4PFJetsCHS"),
+    discriminator      = cms.InputTag("hpsPFTauDiscriminationByTightIsolationMVArun2v1DBoldDMwLT"),
+    cutByDiscriminator = cms.untracked.bool(True),
+    hpsPFTauChargedIsoPtSum = cms.InputTag("hpsPFTauChargedIsoPtSum"),
+    dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
+    genParticles       = cms.InputTag("genParticles")
+)
+
+process.LooseCutBased = cms.EDAnalyzer("phase2TausRECO",
+    vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
+    taus               = cms.InputTag("hpsPFTauProducer"),
+    jets               = cms.InputTag("ak4PFJetsCHS"),
+    discriminator      = cms.InputTag("hpsPFTauDiscriminationByLooseCombinedIsolationDBSumPtCorr3Hits"),
+    cutByDiscriminator = cms.untracked.bool(True),
+    hpsPFTauChargedIsoPtSum = cms.InputTag("hpsPFTauChargedIsoPtSum"),
+    dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
+    genParticles       = cms.InputTag("genParticles")
+)
+
+process.MediumCutBased = cms.EDAnalyzer("phase2TausRECO",
+    vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
+    taus               = cms.InputTag("hpsPFTauProducer"),
+    jets               = cms.InputTag("ak4PFJetsCHS"),
+    discriminator      = cms.InputTag("hpsPFTauDiscriminationByMediumCombinedIsolationDBSumPtCorr3Hits"),
+    cutByDiscriminator = cms.untracked.bool(True),
+    hpsPFTauChargedIsoPtSum = cms.InputTag("hpsPFTauChargedIsoPtSum"),
+    dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
+    genParticles       = cms.InputTag("genParticles")
+)
+
+process.TightCutBased = cms.EDAnalyzer("phase2TausRECO",
+    vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
+    taus               = cms.InputTag("hpsPFTauProducer"),
+    jets               = cms.InputTag("ak4PFJetsCHS"),
+    discriminator      = cms.InputTag("hpsPFTauDiscriminationByTightCombinedIsolationDBSumPtCorr3Hits"),
+    cutByDiscriminator = cms.untracked.bool(True),
+    hpsPFTauChargedIsoPtSum = cms.InputTag("hpsPFTauChargedIsoPtSum"),
+    dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
+    genParticles       = cms.InputTag("genParticles")
+)
+
+process.PFChargedBased = cms.EDAnalyzer("phase2TausRECO",
+    vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
+    taus               = cms.InputTag("hpsPFTauProducer"),
+    jets               = cms.InputTag("ak4PFJetsCHS"),
+    discriminator      = cms.InputTag("hpsPFTauChargedIsoPtSum"),
+    cutByDiscriminator = cms.untracked.bool(False),
+    hpsPFTauChargedIsoPtSum = cms.InputTag("hpsPFTauChargedIsoPtSum"),
     dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
     genParticles       = cms.InputTag("genParticles")
 )
@@ -56,7 +138,14 @@ process.cutBased = cms.EDAnalyzer("phase2TausRECO",
 #Global sequence
 
 process.p = cms.Path(
-         process.cutBased
+         process.VLooseMVA*
+         process.LooseMVA*
+         process.MediumMVA*
+         process.TightMVA*
+         process.LooseCutBased*
+         process.MediumCutBased*
+         process.TightCutBased*
+         process.PFChargedBased
  #        process.MVA
                      )
 

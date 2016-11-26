@@ -34,6 +34,7 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
+#include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
 /*
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/PatCandidates/interface/PackedGenParticle.h"
@@ -71,6 +72,11 @@
 // constructor "usesResource("TFileService");"
 // This will improve performance in multithreaded jobs.
 
+struct customPFTau{
+  reco::PFTau pfTau;
+  float chargedIso;
+};
+
 class phase2TausRECO : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
    public:
       explicit phase2TausRECO(const edm::ParameterSet&);
@@ -88,6 +94,7 @@ private:
   edm::EDGetTokenT<reco::PFTauCollection>    tauToken_;
   edm::EDGetTokenT<reco::PFJetCollection>    jetSrc_;
   edm::EDGetTokenT<reco::PFTauDiscriminator> discriminatorSrc_;
+  edm::EDGetTokenT<reco::PFTauDiscriminator> pfChargedSrc_;
   edm::EDGetTokenT<reco::PFTauDiscriminator> dmfToken_;
   edm::EDGetTokenT<std::vector <reco::GenParticle> > genToken_;
 
@@ -99,11 +106,15 @@ private:
   double tauMass_;
   double genTauPt_;
   double genTauEta_;
+  double vtxX_, vtxY_, vtxZ_, vtxT_;
+  double PFCharged_;
 
   int nvtx_;
   int dmf_;
   int goodReco_;
   int genTauMatch_;
+  int vtxIndex_;
+  bool cutByDiscriminator_;
 
   reco::Candidate::LorentzVector GetVisibleP4(std::vector<const reco::GenParticle*>& daughters);
   void findDaughters(const reco::GenParticle* mother, std::vector<const reco::GenParticle*>& daughters);
@@ -111,7 +122,13 @@ private:
   bool initializeTrackTiming( edm::Handle<edm::View<reco::Track> > tracks, 
 			      edm::Handle<reco::VertexCollection> &vtxs, 
 			      edm::Handle<edm::ValueMap<float> > times, 
-			      edm::Handle<edm::ValueMap<float> > timeResos);
+			      edm::Handle<edm::ValueMap<float> > timeResos,
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt3, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt4, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt5, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt6
+			      );
 
   virtual void beginJob() override;
   virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
@@ -141,12 +158,19 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
   tauToken_        (consumes<reco::PFTauCollection>     (iConfig.getParameter<edm::InputTag>("taus")          )),
   jetSrc_          (consumes<reco::PFJetCollection>     (iConfig.getParameter<edm::InputTag>("jets")          )),
   discriminatorSrc_(consumes<reco::PFTauDiscriminator>  (iConfig.getParameter<edm::InputTag>("discriminator") )),
+  pfChargedSrc_    (consumes<reco::PFTauDiscriminator> (iConfig.getParameter<edm::InputTag>("hpsPFTauChargedIsoPtSum"))),
   dmfToken_        (consumes<reco::PFTauDiscriminator>  (iConfig.getParameter<edm::InputTag>("dmf") )),
   genToken_  (consumes<std::vector<reco::GenParticle> > (iConfig.getParameter<edm::InputTag>("genParticles")  ))
 {
   consumes<edm::View<reco::Track> >(tracksTag_);
   consumes<edm::ValueMap<float> >(timesTag_);
   consumes<edm::ValueMap<float> >(timeResosTag_);
+  cutByDiscriminator_ = true;
+  cutByDiscriminator_ = iConfig.getUntrackedParameter<bool>("cutByDiscriminator");
+
+  if(cutByDiscriminator_)
+    std::cout<<"CutTreeByDiscriminator is true"<<std::endl;
+
   //now do what ever initialization is needed
   usesResource("TFileService");
 
@@ -160,9 +184,15 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    tree->Branch("genTauEta",    &genTauEta_,   "genTauEta_/D"    );
    tree->Branch("genTauMatch",  &genTauMatch_, "genTauMatch_/I"  );
    tree->Branch("nvtx",         &nvtx_,        "nvtx_/I"         );
+   tree->Branch("vtxX",         &vtxX_,        "vtxX_/D"         );
+   tree->Branch("vtxY",         &vtxY_,        "vtxY_/D"         );
+   tree->Branch("vtxZ",         &vtxZ_,        "vtxZ_/D"         );
+   tree->Branch("vtxT",         &vtxT_,        "vtxT_/D"         );
+   tree->Branch("vtxIndex",     &vtxIndex_,    "vtxIndex_/I"     );
    tree->Branch("dmf",          &dmf_,         "dmf_/I"          );
    tree->Branch("goodReco",     &goodReco_,    "goodReco_/I"     );
    tree->Branch("tauMass",      &tauMass_,     "tauMass_/D"      );
+   tree->Branch("PFCharged",    &PFCharged_,   "PFCharged_/D"    );
 
 }
 
@@ -210,6 +240,9 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    Handle<reco::PFTauDiscriminator> discriminator;
    iEvent.getByToken(discriminatorSrc_, discriminator);
 
+   Handle<reco::PFTauDiscriminator> chargedDiscriminator;
+   iEvent.getByToken(pfChargedSrc_, chargedDiscriminator);
+
    Handle<reco::PFTauDiscriminator> DMF; 
    //iEvent.getByLabel("hpsPFTauDiscriminationByDecayModeFindingOldDMs",DMF);
    iEvent.getByToken(dmfToken_,DMF);
@@ -221,7 +254,9 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    iEvent.getByToken(genToken_, genParticles);
 
    //initialize timing objects
-   initializeTrackTiming( tracks, vtxs, times, timeResos);
+   std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6;
+
+   initializeTrackTiming( tracks, vtxs, times, timeResos, vertices_to_tracks_z, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6);
 
    std::vector<const reco::GenParticle*> GenTaus;
    for(std::vector<reco::GenParticle>::const_iterator genParticle = genParticles->begin(); genParticle != genParticles->end(); genParticle++){
@@ -230,13 +265,33 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
      //if(TMath::Abs(genParticle->pdgId()) == 13) GenMus.push_back(&(*genParticle));
    }
    
-   std::vector<reco::PFTau> goodTaus;
+   std::vector<customPFTau> goodTaus;
    for (unsigned int iTau = 0; iTau<taus->size() ; ++iTau){
      reco::PFTauRef tauCandidate(taus, iTau);
-     if((*DMF)[tauCandidate] > -1)
-       if((*discriminator)[tauCandidate] > 0.5)
-	 goodTaus.push_back(*tauCandidate);
+     if((*DMF)[tauCandidate] > -1){
+       if(cutByDiscriminator_){
+	 if((*discriminator)[tauCandidate] > 0.5){
+	   customPFTau tempCPFTau;
+	   tempCPFTau.pfTau = *tauCandidate;
+	   tempCPFTau.chargedIso = (*chargedDiscriminator)[tauCandidate];
+	   goodTaus.push_back(tempCPFTau);
+	 }
+       }
+       else{
+	 customPFTau tempCPFTau;
+	 tempCPFTau.pfTau = *tauCandidate;
+	 tempCPFTau.chargedIso = (*chargedDiscriminator)[tauCandidate];
+	 goodTaus.push_back(tempCPFTau);
+       }
+       std::vector<reco::PFCandidatePtr> isoCharged_;
+       for( auto const & cand : tauCandidate->isolationPFChargedHadrCands() ) {
+	 //if ( qcuts_->filterCandRef(cand) ) {
+	 //LogTrace("discriminate") << "adding charged iso cand with pt " << cand->pt() ;
+	 isoCharged_.push_back(cand);
+       }
+     }
    }
+
 
    for(auto genTau : GenTaus){
       tauPt_=-10;
@@ -245,7 +300,7 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       genTauPt_=-10;
       genTauEta_=-10;
      
-      nvtx_=-10;
+      //nvtx_=-10;
       dmf_=-10;
       goodReco_=0;
       genTauMatch_=0;
@@ -257,13 +312,14 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       genTauEta_ = (float) genTauVis.eta();
       
       //std::cout<<" pt "<<genTauPt_<<" eta "<<genTauEta_<<std::endl;
-      for(const reco::PFTau tau : goodTaus){
-	if (reco::deltaR(tau.eta(),tau.phi(),genTauVis.eta(),genTauVis.phi()) < 0.5){
+      for(auto tau : goodTaus){
+	if (reco::deltaR(tau.pfTau.eta(),tau.pfTau.phi(),genTauVis.eta(),genTauVis.phi()) < 0.5){
 	  genTauMatch_ = 1;
-	  tauPt_  = tau.pt();
-	  tauEta_ = tau.eta();
-	  dmf_ = tau.decayMode();
-	  //goodReco_ = (bool) tau.tauID(tauID_) >0.5;
+	  tauPt_  = tau.pfTau.pt();
+	  tauEta_ = tau.pfTau.eta();
+	  dmf_ = tau.pfTau.decayMode();
+	  PFCharged_ = tau.chargedIso;
+	  //goodReco_ = (bool) tau.pfTau.tauID(tauID_) >0.5;
 
 	  //get the matched vertex
 	  int vtx_index = -1;
@@ -272,12 +328,30 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  float max_weight = 0.f;
 	  for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	    const auto& vtx = (*vtxs)[i];      
-	    const float weight = vtx.trackWeight(tau.leadPFChargedHadrCand());// check me -> Get track ref for charged hadron candidate
+	    const float weight = vtx.trackWeight(tau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
 	    if( weight > max_weight ) {
 	      max_weight = weight;
 	      vtx_index = i;
 	    }
 	  }
+	  //now do vtx variable filling
+	  vtxIndex_ = vtx_index;
+
+	  const reco::Vertex& vtx = (vtx_index == -1 ? (*vtxs)[0] : (*vtxs)[vtx_index]);
+	  vtxX_ = vtx.x();
+	  vtxY_ = vtx.y();
+	  vtxZ_ = vtx.z();
+	  vtxT_ = vtx.t();
+	  // use highest ranked if muon doesn't belong to any vertex
+	  //const reco::Vertex& vtx = (vtx_index == -1 ? (*vtxs)[0] : (*vtxs)[vtx_index]);
+	  //const auto tracks_z  = vertices_to_tracks_z.equal_range(vtx_index);
+	  //const auto tracks_zt3 = vertices_to_tracks_zt3.equal_range(vtx_index);
+	  //const auto tracks_zt4 = vertices_to_tracks_zt4.equal_range(vtx_index);
+	  //const auto tracks_zt5 = vertices_to_tracks_zt5.equal_range(vtx_index);
+	  //const auto tracks_zt6 = vertices_to_tracks_zt6.equal_range(vtx_index);
+
+
+
 	  break;
 	}
       }
@@ -342,10 +416,14 @@ bool phase2TausRECO::isNeutrino(const reco::Candidate* daughter)
 bool phase2TausRECO::initializeTrackTiming( edm::Handle<edm::View<reco::Track> > tracks, 
 					    edm::Handle<reco::VertexCollection> &vtxs, 
 					    edm::Handle<edm::ValueMap<float> >  times, 
-					    edm::Handle<edm::ValueMap<float> >  timeResos)
+					    edm::Handle<edm::ValueMap<float> >  timeResos,
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt3, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt4, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt5, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt6)
 {
   //make a map of vertices to track refs within cuts
-  std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6 ;
   for( unsigned i = 0; i < tracks->size(); ++i ) {
   //for( auto ref : tracks ) {
     auto ref = tracks->refAt(i);
