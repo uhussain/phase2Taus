@@ -1,0 +1,2 @@
+cmsRun runTauTiming.py inputFileList=RelValZTT_PU200.txt outputFile=timing-ZTT-PU200.root
+bash getFilesFromDas.sh /RelValZTT_13/CMSSW_8_1_0_pre15-PU25ns_81X_upgrade2023_realistic_v3_2023D3Timing13ESPU200-v1/GEN-SIM-RECO

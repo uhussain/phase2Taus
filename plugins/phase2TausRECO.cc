@@ -75,6 +75,9 @@
 struct customPFTau{
   reco::PFTau pfTau;
   float chargedIso;
+  std::vector<reco::PFCandidatePtr> isoCharged_;
+  std::vector<reco::PFCandidatePtr> isoChargedT1_;
+  std::vector<reco::PFCandidatePtr> isoChargedT2_;
 };
 
 class phase2TausRECO : public edm::one::EDAnalyzer<edm::one::SharedResources>  {
@@ -101,18 +104,28 @@ private:
   std::string tauID_;
 
   TTree* tree;
+  TTree* jetTree;
   double tauPt_;
   double tauEta_;
   double tauMass_;
   double genTauPt_;
   double genTauEta_;
+  double jetPt_;
+  double jetEta_;
   double vtxX_, vtxY_, vtxZ_, vtxT_;
   double PFCharged_;
+  double PFChargedT1_;
+  double PFChargedT2_;
+  double PFChargedT3_;
+  double PFChargedT4_;
+  double PFChargedT5_;
+  double PFChargedT6_;
 
   int nvtx_;
   int dmf_;
   int goodReco_;
   int genTauMatch_;
+  int jetTauMatch_;
   int vtxIndex_;
   bool cutByDiscriminator_;
 
@@ -123,12 +136,31 @@ private:
 			      edm::Handle<reco::VertexCollection> &vtxs, 
 			      edm::Handle<edm::ValueMap<float> > times, 
 			      edm::Handle<edm::ValueMap<float> > timeResos,
-			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, 
-			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt3, 
-			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt4, 
-			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt5, 
-			      std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt6
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z,
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt1, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt2, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt4, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt5, 
+			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt6
 			      );
+
+void calculateIsoQuantities(customPFTau tau,
+			    int vtx_index,
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt1, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt2, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt4, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt5, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt6,
+			    double &ptSum, 
+			    double &ptSumT1, 
+			    double &ptSumT2, 
+			    double &ptSumT3, 
+			    double &ptSumT4, 
+			    double &ptSumT5, 
+			    double &ptSumT6);
 
   virtual void beginJob() override;
   virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
@@ -168,9 +200,6 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
   cutByDiscriminator_ = true;
   cutByDiscriminator_ = iConfig.getUntrackedParameter<bool>("cutByDiscriminator");
 
-  if(cutByDiscriminator_)
-    std::cout<<"CutTreeByDiscriminator is true"<<std::endl;
-
   //now do what ever initialization is needed
   usesResource("TFileService");
 
@@ -193,7 +222,36 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    tree->Branch("goodReco",     &goodReco_,    "goodReco_/I"     );
    tree->Branch("tauMass",      &tauMass_,     "tauMass_/D"      );
    tree->Branch("PFCharged",    &PFCharged_,   "PFCharged_/D"    );
+   tree->Branch("PFChargedT1",  &PFChargedT1_, "PFChargedT1_/D"  );
+   tree->Branch("PFChargedT2",  &PFChargedT2_, "PFChargedT2_/D"  );
+   tree->Branch("PFChargedT3",  &PFChargedT3_, "PFChargedT3_/D"  );
+   tree->Branch("PFChargedT4",  &PFChargedT4_, "PFChargedT4_/D"  );
+   tree->Branch("PFChargedT5",  &PFChargedT5_, "PFChargedT5_/D"  );
+   tree->Branch("PFChargedT6",  &PFChargedT6_, "PFChargedT6_/D"  );
 
+
+   jetTree = fs->make<TTree>(      "jetNtuple",   "jetNtuple"       );
+   jetTree->Branch("tauPt",        &tauPt_,       "tauPt_/D"        );
+   jetTree->Branch("tauEta",       &tauEta_,      "tauEta_/D"       );
+   jetTree->Branch("jetPt",        &jetPt_,       "jetPt_/D"        );
+   jetTree->Branch("jetEta",       &jetEta_,      "jetEta_/D"       );
+   jetTree->Branch("jetTauMatch",  &jetTauMatch_, "jetTauMatch_/I"  );
+   jetTree->Branch("nvtx",         &nvtx_,        "nvtx_/I"         );
+   jetTree->Branch("vtxX",         &vtxX_,        "vtxX_/D"         );
+   jetTree->Branch("vtxY",         &vtxY_,        "vtxY_/D"         );
+   jetTree->Branch("vtxZ",         &vtxZ_,        "vtxZ_/D"         );
+   jetTree->Branch("vtxT",         &vtxT_,        "vtxT_/D"         );
+   jetTree->Branch("vtxIndex",     &vtxIndex_,    "vtxIndex_/I"     );
+   jetTree->Branch("dmf",          &dmf_,         "dmf_/I"          );
+   jetTree->Branch("goodReco",     &goodReco_,    "goodReco_/I"     );
+   jetTree->Branch("tauMass",      &tauMass_,     "tauMass_/D"      );
+   jetTree->Branch("PFCharged",    &PFCharged_,   "PFCharged_/D"    );
+   jetTree->Branch("PFChargedT1",  &PFChargedT1_, "PFChargedT1_/D"  );
+   jetTree->Branch("PFChargedT2",  &PFChargedT2_, "PFChargedT2_/D"  );
+   jetTree->Branch("PFChargedT3",  &PFChargedT3_, "PFChargedT3_/D"  );
+   jetTree->Branch("PFChargedT4",  &PFChargedT4_, "PFChargedT4_/D"  );
+   jetTree->Branch("PFChargedT5",  &PFChargedT5_, "PFChargedT5_/D"  );
+   jetTree->Branch("PFChargedT6",  &PFChargedT6_, "PFChargedT6_/D"  );
 }
 
 
@@ -218,45 +276,56 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    //get track colletions
 
    edm::Handle<edm::View<reco::Track> >tracks;
-   iEvent.getByLabel(tracksTag_,tracks);
+   if(!iEvent.getByLabel(tracksTag_,tracks))
+     std::cout<<"Error getting Tracks"<<std::endl;
 
    edm::Handle<edm::ValueMap<float> > times;
-   iEvent.getByLabel(timesTag_,times);
+   if(!iEvent.getByLabel(timesTag_,times))
+     std::cout<<"Error getting Times"<<std::endl;
 
    edm::Handle<edm::ValueMap<float> > timeResos;
-   iEvent.getByLabel(timeResosTag_,timeResos);
+   if(!iEvent.getByLabel(timeResosTag_,timeResos))
+     std::cout<<"Error getting TimeResos"<<std::endl;
 
    Handle<reco::VertexCollection> vtxs;
-   iEvent.getByToken(vtxToken_, vtxs);
+   if(!iEvent.getByToken(vtxToken_, vtxs))
+     std::cout<<"Error getting vtxs"<<std::endl;
    nvtx_ = vtxs->size();
 
    //get objects
-   Handle<reco::PFJetCollection> jetObjects;
-   iEvent.getByToken(jetSrc_, jetObjects);
+   Handle<reco::PFJetCollection> JetObjects;
+   if(!iEvent.getByToken(jetSrc_, JetObjects))
+     std::cout<<"Error getting Jets"<<std::endl;
 
    edm::Handle<reco::PFTauCollection> taus;
-   iEvent.getByToken(tauToken_, taus);
+   if(!iEvent.getByToken(tauToken_, taus))
+     std::cout<<"Error getting Taus"<<std::endl;
 
    Handle<reco::PFTauDiscriminator> discriminator;
-   iEvent.getByToken(discriminatorSrc_, discriminator);
+   if(!iEvent.getByToken(discriminatorSrc_, discriminator))
+     std::cout<<"Error getting tau discriminator"<<std::endl;
 
    Handle<reco::PFTauDiscriminator> chargedDiscriminator;
-   iEvent.getByToken(pfChargedSrc_, chargedDiscriminator);
+   if(!iEvent.getByToken(pfChargedSrc_, chargedDiscriminator))
+     std::cout<<"Error getting Tau charged Iso"<<std::endl;
+
 
    Handle<reco::PFTauDiscriminator> DMF; 
    //iEvent.getByLabel("hpsPFTauDiscriminationByDecayModeFindingOldDMs",DMF);
-   iEvent.getByToken(dmfToken_,DMF);
+   if(!iEvent.getByToken(dmfToken_,DMF))
+     std::cout<<"Error getting DMF disc"<<std::endl;
 
    //std::vector<const reco::GenParticle*> GenObjects = getGenParticleCollection(iEvent);
    //if (GenObjects.size()!=0) return;
 
    edm::Handle<std::vector<reco::GenParticle> > genParticles;
-   iEvent.getByToken(genToken_, genParticles);
+   if(!iEvent.getByToken(genToken_, genParticles))
+     std::cout<<"Error getting Gen Particles"<<std::endl;
 
    //initialize timing objects
-   std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6;
+   std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, vertices_to_tracks_zt1, vertices_to_tracks_zt2, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6;
 
-   initializeTrackTiming( tracks, vtxs, times, timeResos, vertices_to_tracks_z, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6);
+   initializeTrackTiming( tracks, vtxs, times, timeResos, vertices_to_tracks_z, vertices_to_tracks_zt1, vertices_to_tracks_zt2, vertices_to_tracks_zt3, vertices_to_tracks_zt4, vertices_to_tracks_zt5, vertices_to_tracks_zt6);
 
    std::vector<const reco::GenParticle*> GenTaus;
    for(std::vector<reco::GenParticle>::const_iterator genParticle = genParticles->begin(); genParticle != genParticles->end(); genParticle++){
@@ -264,7 +333,25 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
      //if(TMath::Abs(genParticle->pdgId()) == 11) GenEles.push_back(&(*genParticle));
      //if(TMath::Abs(genParticle->pdgId()) == 13) GenMus.push_back(&(*genParticle));
    }
-   
+
+   std::vector<reco::PFJet> Jets;
+   for (unsigned int iJet = 0; iJet < JetObjects->size() ; ++iJet){
+     reco::PFJetRef jetCand(JetObjects, iJet);
+     bool isATau=false;
+     for(auto genTau : GenTaus){
+       std::vector<const reco::GenParticle*> genTauDaughters;
+       findDaughters(genTau, genTauDaughters);
+       reco::Candidate::LorentzVector genTauVis = GetVisibleP4(genTauDaughters);
+       genTauPt_  = (float) genTauVis.pt();
+       genTauEta_ = (float) genTauVis.eta();
+       if (reco::deltaR(jetCand->eta(),jetCand->phi(),genTauVis.eta(),genTauVis.phi()) < 0.5)
+	 isATau=true;
+       
+     }
+     if(!isATau)
+       Jets.push_back(*jetCand);
+   }   
+
    std::vector<customPFTau> goodTaus;
    for (unsigned int iTau = 0; iTau<taus->size() ; ++iTau){
      reco::PFTauRef tauCandidate(taus, iTau);
@@ -274,21 +361,27 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	   customPFTau tempCPFTau;
 	   tempCPFTau.pfTau = *tauCandidate;
 	   tempCPFTau.chargedIso = (*chargedDiscriminator)[tauCandidate];
+	   
+	   for( auto const & cand : tauCandidate->isolationPFChargedHadrCands() ){
+	     tempCPFTau.isoCharged_.push_back(cand);}
+	   
 	   goodTaus.push_back(tempCPFTau);
 	 }
        }
        else{
-	 customPFTau tempCPFTau;
-	 tempCPFTau.pfTau = *tauCandidate;
-	 tempCPFTau.chargedIso = (*chargedDiscriminator)[tauCandidate];
-	 goodTaus.push_back(tempCPFTau);
+	 if((*chargedDiscriminator)[tauCandidate] > -1){
+	   customPFTau tempCPFTau;
+	   tempCPFTau.pfTau = *tauCandidate;
+	   tempCPFTau.chargedIso = (*chargedDiscriminator)[tauCandidate];
+	   
+	   for( auto const & cand : tauCandidate->isolationPFChargedHadrCands() ) 
+	     tempCPFTau.isoCharged_.push_back(cand);
+	   
+	   goodTaus.push_back(tempCPFTau);
+	 }
        }
-       std::vector<reco::PFCandidatePtr> isoCharged_;
-       for( auto const & cand : tauCandidate->isolationPFChargedHadrCands() ) {
-	 //if ( qcuts_->filterCandRef(cand) ) {
-	 //LogTrace("discriminate") << "adding charged iso cand with pt " << cand->pt() ;
-	 isoCharged_.push_back(cand);
-       }
+       //std::vector<reco::PFCandidatePtr> isoCharged_;
+
      }
    }
 
@@ -304,7 +397,14 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       dmf_=-10;
       goodReco_=0;
       genTauMatch_=0;
-      
+      PFCharged_=0;
+      PFChargedT1_=0;
+      PFChargedT2_=0;
+      PFChargedT3_=0;
+      PFChargedT4_=0;
+      PFChargedT5_=0;
+      PFChargedT6_=0;
+
       std::vector<const reco::GenParticle*> genTauDaughters;
       findDaughters(genTau, genTauDaughters);
       reco::Candidate::LorentzVector genTauVis = GetVisibleP4(genTauDaughters);
@@ -317,13 +417,12 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  genTauMatch_ = 1;
 	  tauPt_  = tau.pfTau.pt();
 	  tauEta_ = tau.pfTau.eta();
-	  dmf_ = tau.pfTau.decayMode();
+	  dmf_    = tau.pfTau.decayMode();
 	  PFCharged_ = tau.chargedIso;
 	  //goodReco_ = (bool) tau.pfTau.tauID(tauID_) >0.5;
 
 	  //get the matched vertex
 	  int vtx_index = -1;
-
 	  // find the 4D vertex this muon is best associated to..
 	  float max_weight = 0.f;
 	  for( unsigned i = 0; i < vtxs->size(); ++i ) {
@@ -342,22 +441,136 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  vtxY_ = vtx.y();
 	  vtxZ_ = vtx.z();
 	  vtxT_ = vtx.t();
-	  // use highest ranked if muon doesn't belong to any vertex
-	  //const reco::Vertex& vtx = (vtx_index == -1 ? (*vtxs)[0] : (*vtxs)[vtx_index]);
-	  //const auto tracks_z  = vertices_to_tracks_z.equal_range(vtx_index);
-	  //const auto tracks_zt3 = vertices_to_tracks_zt3.equal_range(vtx_index);
-	  //const auto tracks_zt4 = vertices_to_tracks_zt4.equal_range(vtx_index);
-	  //const auto tracks_zt5 = vertices_to_tracks_zt5.equal_range(vtx_index);
-	  //const auto tracks_zt6 = vertices_to_tracks_zt6.equal_range(vtx_index);
 
+	  double ptSum = 0;
+	  double ptSumT1 = 0;
+	  double ptSumT2 = 0;
+	  double ptSumT3 = 0;
+	  double ptSumT4 = 0;
+	  double ptSumT5 = 0;
+	  double ptSumT6 = 0;
+	  //calculate the quantities for isolation
 
+	  calculateIsoQuantities(tau,
+				 vtx_index,
+				 vertices_to_tracks_z, 
+				 vertices_to_tracks_zt1, 
+				 vertices_to_tracks_zt2, 
+				 vertices_to_tracks_zt3, 
+				 vertices_to_tracks_zt4, 
+				 vertices_to_tracks_zt5, 
+				 vertices_to_tracks_zt6,
+				 ptSum, 
+				 ptSumT1, 
+				 ptSumT2, 
+				 ptSumT3, 
+				 ptSumT4, 
+				 ptSumT5, 
+				 ptSumT6);
+
+	  PFChargedT1_ = ptSumT1;
+	  PFChargedT2_ = ptSumT2;
+	  PFChargedT3_ = ptSumT3;
+	  PFChargedT4_ = ptSumT4;
+	  PFChargedT5_ = ptSumT5;
+	  PFChargedT6_ = ptSumT6;
 
 	  break;
 	}
       }
       tree->Fill(); 
    }
-   
+
+
+   for(auto jet : Jets){
+      tauPt_=-10;
+      tauEta_=-10;
+      tauMass_=-10;
+      jetPt_=jet.pt();
+      jetEta_=jet.eta();
+     
+      //nvtx_=-10;
+      dmf_=-10;
+      goodReco_=0;
+      jetTauMatch_=0;
+      PFCharged_=0;
+      PFChargedT1_=0;
+      PFChargedT2_=0;
+      PFChargedT3_=0;
+      PFChargedT4_=0;
+      PFChargedT5_=0;
+      PFChargedT6_=0;
+
+      for(auto tau : goodTaus){
+	if (reco::deltaR(tau.pfTau.eta(),tau.pfTau.phi(),jet.eta(),jet.phi()) < 0.5){
+	  jetTauMatch_ = 1;
+	  tauPt_  = tau.pfTau.pt();
+	  tauEta_ = tau.pfTau.eta();
+	  dmf_    = tau.pfTau.decayMode();
+	  PFCharged_ = tau.chargedIso;
+	  //goodReco_ = (bool) tau.pfTau.tauID(tauID_) >0.5;
+
+	  //get the matched vertex
+	  int vtx_index = -1;
+	  // find the 4D vertex this muon is best associated to..
+	  float max_weight = 0.f;
+	  for( unsigned i = 0; i < vtxs->size(); ++i ) {
+	    const auto& vtx = (*vtxs)[i];      
+	    const float weight = vtx.trackWeight(tau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
+	    if( weight > max_weight ) {
+	      max_weight = weight;
+	      vtx_index = i;
+	    }
+	  }
+	  //now do vtx variable filling
+	  vtxIndex_ = vtx_index;
+
+	  const reco::Vertex& vtx = (vtx_index == -1 ? (*vtxs)[0] : (*vtxs)[vtx_index]);
+	  vtxX_ = vtx.x();
+	  vtxY_ = vtx.y();
+	  vtxZ_ = vtx.z();
+	  vtxT_ = vtx.t();
+
+	  double ptSum = 0;
+	  double ptSumT1 = 0;
+	  double ptSumT2 = 0;
+	  double ptSumT3 = 0;
+	  double ptSumT4 = 0;
+	  double ptSumT5 = 0;
+	  double ptSumT6 = 0;
+	  //calculate the quantities for isolation
+
+	  calculateIsoQuantities(tau,
+				 vtx_index,
+				 vertices_to_tracks_z, 
+				 vertices_to_tracks_zt1, 
+				 vertices_to_tracks_zt2, 
+				 vertices_to_tracks_zt3, 
+				 vertices_to_tracks_zt4, 
+				 vertices_to_tracks_zt5, 
+				 vertices_to_tracks_zt6,
+				 ptSum, 
+				 ptSumT1, 
+				 ptSumT2, 
+				 ptSumT3, 
+				 ptSumT4, 
+				 ptSumT5, 
+				 ptSumT6);
+
+	  PFChargedT1_ = ptSumT1;
+	  PFChargedT2_ = ptSumT2;
+	  PFChargedT3_ = ptSumT3;
+	  PFChargedT4_ = ptSumT4;
+	  PFChargedT5_ = ptSumT5;
+	  PFChargedT6_ = ptSumT6;
+
+	  break;
+	}
+      }
+      jetTree->Fill(); 
+   }
+
+
 }
 
 
@@ -417,11 +630,13 @@ bool phase2TausRECO::initializeTrackTiming( edm::Handle<edm::View<reco::Track> >
 					    edm::Handle<reco::VertexCollection> &vtxs, 
 					    edm::Handle<edm::ValueMap<float> >  times, 
 					    edm::Handle<edm::ValueMap<float> >  timeResos,
-					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_z, 
-					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt3, 
-					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt4, 
-					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt5, 
-					    std::unordered_multimap<unsigned,reco::TrackBaseRef> vertices_to_tracks_zt6)
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt1, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt2, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt4, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt5, 
+					    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt6)
 {
   //make a map of vertices to track refs within cuts
   for( unsigned i = 0; i < tracks->size(); ++i ) {
@@ -438,12 +653,17 @@ bool phase2TausRECO::initializeTrackTiming( edm::Handle<edm::View<reco::Track> >
       const float base_cut = std::sqrt(thevtx.tError()*thevtx.tError()
 				       + timeReso*timeReso);
 
+      const float time_cut1 = 1.f*base_cut;
+      const float time_cut2 = 2.f*base_cut;
       const float time_cut3 = 3.f*base_cut;
       const float time_cut4 = 4.f*base_cut;
       const float time_cut5 = 5.f*base_cut;
       const float time_cut6 = 6.f*base_cut;
 
       const bool keepz = ( dz < 0.2f );
+
+      const bool keept1 = (!useTime || dt < time_cut1);
+      const bool keept2 = (!useTime || dt < time_cut2);
       const bool keept3 = (!useTime || dt < time_cut3);
       const bool keept4 = (!useTime || dt < time_cut4);
       const bool keept5 = (!useTime || dt < time_cut5);
@@ -463,10 +683,124 @@ bool phase2TausRECO::initializeTrackTiming( edm::Handle<edm::View<reco::Track> >
 	if( keept3 ) {
 	  vertices_to_tracks_zt3.emplace(ivtx,ref);
 	}
+	if( keept2 ) {
+	  vertices_to_tracks_zt2.emplace(ivtx,ref);
+	}
+	if( keept1 ) {
+	  vertices_to_tracks_zt1.emplace(ivtx,ref);
+	}
       }      
     }
   }
   return true;
+}
+
+void phase2TausRECO::calculateIsoQuantities(customPFTau tau,
+			    int vtx_index,
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt1, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt2, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt4, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt5, 
+			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt6,
+			    double &ptSum, 
+			    double &ptSumT1, 
+			    double &ptSumT2, 
+			    double &ptSumT3, 
+			    double &ptSumT4, 
+			    double &ptSumT5, 
+			    double &ptSumT6 ){
+
+	  // use highest ranked if tau doesn't belong to any vertex
+	  const auto tracks_z   = vertices_to_tracks_z.equal_range(vtx_index);
+	  const auto tracks_zt1 = vertices_to_tracks_zt1.equal_range(vtx_index);
+	  const auto tracks_zt2 = vertices_to_tracks_zt2.equal_range(vtx_index);
+	  const auto tracks_zt3 = vertices_to_tracks_zt3.equal_range(vtx_index);
+	  const auto tracks_zt4 = vertices_to_tracks_zt4.equal_range(vtx_index);
+	  const auto tracks_zt5 = vertices_to_tracks_zt5.equal_range(vtx_index);
+	  const auto tracks_zt6 = vertices_to_tracks_zt6.equal_range(vtx_index);
+
+	  int i = 0;
+	  //std::cout<<"tau.isoCharged_.size() "<<tau.isoCharged_.size();
+	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_z.first; iTrack!=tracks_z.second; ++iTrack){
+	    for(auto chargedCand : tau.isoCharged_){
+	      if(iTrack->second.key() == chargedCand->trackRef().key() ){
+		ptSum += chargedCand->pt();
+	      }
+	      i++;
+	    }
+	  }
+	  //std::cout<<" track map size "<<i<<std::endl;
+	  i=0;
+	  //timeslice 1
+	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt1.first; iTrack!=tracks_zt1.second; ++iTrack){
+	    for(auto chargedCand : tau.isoCharged_){
+		if(iTrack->second.key() == chargedCand->trackRef().key() ){
+		  ptSumT1 += chargedCand->pt();
+		}
+		i++;
+	    }
+	  }
+	  //std::cout<<" track map size "<<i<<std::endl;
+	  i=0;
+	  //timeslice 2
+	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt2.first; iTrack!=tracks_zt2.second; ++iTrack){
+	    for(auto chargedCand : tau.isoCharged_){
+		if(iTrack->second.key() == chargedCand->trackRef().key() ){
+		  ptSumT2 += chargedCand->pt();
+		}
+		i++;
+	    }
+	  }
+	  //std::cout<<" track map size "<<i<<std::endl;
+	  i=0;
+	  //timeslice 3
+	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt3.first; iTrack!=tracks_zt3.second; ++iTrack){
+	    for(auto chargedCand : tau.isoCharged_){
+		if(iTrack->second.key() == chargedCand->trackRef().key() ){
+		  ptSumT3 += chargedCand->pt();
+		}
+		i++;
+	    }
+	  }
+	  //std::cout<<" track map size "<<i<<std::endl;
+	  i=0;
+	  //timeslice 4
+	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt4.first; iTrack!=tracks_zt4.second; ++iTrack){
+	    for(auto chargedCand : tau.isoCharged_){
+		if(iTrack->second.key() == chargedCand->trackRef().key() ){
+		  ptSumT4 += chargedCand->pt();
+		}
+		i++;
+	    }
+	  }
+	  //std::cout<<" track map size "<<i<<std::endl;
+	  i=0;
+	  //timeslice 5
+	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt5.first; iTrack!=tracks_zt5.second; ++iTrack){
+	    for(auto chargedCand : tau.isoCharged_){
+		if(iTrack->second.key() == chargedCand->trackRef().key() ){
+		  ptSumT5 += chargedCand->pt();
+		}
+		i++;
+	    }
+	  }
+	  //std::cout<<" track map size "<<i<<std::endl;
+	  i=0;
+	  //timeslice 6
+	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt6.first; iTrack!=tracks_zt6.second; ++iTrack){
+	    for(auto chargedCand : tau.isoCharged_){
+		if(iTrack->second.key() == chargedCand->trackRef().key() ){
+		  ptSumT6 += chargedCand->pt();
+		}
+		i++;
+	    }
+	  }
+	  //std::cout<<" track map size "<<i<<std::endl;
+	  //std::cout<<"ptsum "<<ptSum<<" chargedIsoSum "<< tau.chargedIso<<std::endl;
+	  //std::cout<<"T1: "<<ptSumT1<<" T2: "<<ptSumT2<<" T3: "<<ptSumT3<<" T4: "<<ptSumT4<<" T5: "<<ptSumT5<<" T6: "<<ptSumT6<<std::endl;
+
 }
 
 //define this as a plug-in

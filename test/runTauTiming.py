@@ -7,12 +7,14 @@ from FWCore.ParameterSet.VarParsing import VarParsing
 options = VarParsing ('analysis')
 
 options.outputFile = "timing-ttbar.root"
-
+#options.register('outputFile','timing.root',VarParsing.multiplicity.singleton, VarParsing.varType.string,'outputfile name is timing.root if one is not given')
 options.register('inputFileList', '', VarParsing.multiplicity.singleton, VarParsing.varType.string, 'Manual file list input, will query DAS if empty')
 options.parseArguments()
 
 #name the process
 process = cms.Process("TreeProducerFromMiniAOD")
+process.options = cms.untracked.PSet( SkipEvent = cms.untracked.vstring('ProductNotFound') )
+
 process.load('FWCore/MessageService/MessageLogger_cfi')
 process.MessageLogger.cerr.FwkReport.reportEvery = 10;
 process.MessageLogger.cerr.threshold = cms.untracked.string('INFO')
@@ -127,13 +129,6 @@ process.PFChargedBased = cms.EDAnalyzer("phase2TausRECO",
     genParticles       = cms.InputTag("genParticles")
 )
 
-#process.MVA = cms.EDAnalyzer("phase2Taus",
-#    vertices = cms.InputTag("offlineSlimmedPrimaryVertices"),
-#    taus = cms.InputTag("slimmedTaus"),
-#    tauID = cms.string("byLooseIsolationMVArun2v1DBoldDMwLT"),
-#    pruned = cms.InputTag("prunedGenParticles")
-#)
-
 ###################################################
 #Global sequence
 
@@ -146,7 +141,6 @@ process.p = cms.Path(
          process.MediumCutBased*
          process.TightCutBased*
          process.PFChargedBased
- #        process.MVA
                      )
 
 process.TFileService = cms.Service("TFileService",
