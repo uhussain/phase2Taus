@@ -6,6 +6,7 @@ cmsrel CMSSW_8_1_0_pre12
 cd CMSSW_8_1_0_pre12/src
 cmsenv
 git cms-init
+git cms-merge-topic 16450 #this should work, but please pay attention in case there is an issue here
 git cms-addpkg RecoTauTag/RecoTau
 cd RecoTauTag
 git clone git@github.com:isobelojalvo/phase2Taus.git
