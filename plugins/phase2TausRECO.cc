@@ -35,6 +35,7 @@
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
+
 /*
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "DataFormats/PatCandidates/interface/PackedGenParticle.h"
@@ -51,6 +52,7 @@
 #include "DataFormats/TauReco/interface/PFTauFwd.h"
 #include "DataFormats/TauReco/interface/PFTau.h"
 
+#include "DataFormats/JetReco/interface/GenJetCollection.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/Math/interface/LorentzVector.h"
@@ -96,6 +98,7 @@ private:
   edm::EDGetTokenT<reco::VertexCollection>   vtxToken_;
   edm::EDGetTokenT<reco::PFTauCollection>    tauToken_;
   edm::EDGetTokenT<reco::PFJetCollection>    jetSrc_;
+  edm::EDGetTokenT<reco::GenJetCollection>   genJetSrc_;
   edm::EDGetTokenT<reco::PFTauDiscriminator> discriminatorSrc_;
   edm::EDGetTokenT<reco::PFTauDiscriminator> pfChargedSrc_;
   edm::EDGetTokenT<reco::PFTauDiscriminator> dmfToken_;
@@ -126,6 +129,7 @@ private:
   int goodReco_;
   int genTauMatch_;
   int jetTauMatch_;
+  int genJetMatch_;
   int vtxIndex_;
   bool cutByDiscriminator_;
 
@@ -186,11 +190,12 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
   tracksTag_       ("generalTracks",""),
   timesTag_        ("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModel"),
   timeResosTag_    ("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModelResolution"),
-  vtxToken_        (consumes<reco::VertexCollection>   (iConfig.getParameter<edm::InputTag>("vertices")      )),
+  vtxToken_        (consumes<reco::VertexCollection>    (iConfig.getParameter<edm::InputTag>("vertices")      )),
   tauToken_        (consumes<reco::PFTauCollection>     (iConfig.getParameter<edm::InputTag>("taus")          )),
   jetSrc_          (consumes<reco::PFJetCollection>     (iConfig.getParameter<edm::InputTag>("jets")          )),
+  genJetSrc_       (consumes<reco::GenJetCollection>    (iConfig.getParameter<edm::InputTag>("genJets")       )),
   discriminatorSrc_(consumes<reco::PFTauDiscriminator>  (iConfig.getParameter<edm::InputTag>("discriminator") )),
-  pfChargedSrc_    (consumes<reco::PFTauDiscriminator> (iConfig.getParameter<edm::InputTag>("hpsPFTauChargedIsoPtSum"))),
+  pfChargedSrc_    (consumes<reco::PFTauDiscriminator>  (iConfig.getParameter<edm::InputTag>("hpsPFTauChargedIsoPtSum"))),
   dmfToken_        (consumes<reco::PFTauDiscriminator>  (iConfig.getParameter<edm::InputTag>("dmf") )),
   genToken_  (consumes<std::vector<reco::GenParticle> > (iConfig.getParameter<edm::InputTag>("genParticles")  ))
 {
@@ -236,6 +241,7 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    jetTree->Branch("jetPt",        &jetPt_,       "jetPt_/D"        );
    jetTree->Branch("jetEta",       &jetEta_,      "jetEta_/D"       );
    jetTree->Branch("jetTauMatch",  &jetTauMatch_, "jetTauMatch_/I"  );
+   jetTree->Branch("genJetMatch",  &genJetMatch_, "genJetMatch_/I"  );
    jetTree->Branch("nvtx",         &nvtx_,        "nvtx_/I"         );
    jetTree->Branch("vtxX",         &vtxX_,        "vtxX_/D"         );
    jetTree->Branch("vtxY",         &vtxY_,        "vtxY_/D"         );
@@ -300,6 +306,10 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    edm::Handle<reco::PFTauCollection> taus;
    if(!iEvent.getByToken(tauToken_, taus))
      std::cout<<"Error getting Taus"<<std::endl;
+
+   edm::Handle<reco::GenJetCollection> genJets;
+   if(!iEvent.getByToken(genJetSrc_, genJets))
+     std::cout<<"Error getting genJets"<<std::endl;
 
    Handle<reco::PFTauDiscriminator> discriminator;
    if(!iEvent.getByToken(discriminatorSrc_, discriminator))
@@ -501,8 +511,16 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       PFChargedT5_=0;
       PFChargedT6_=0;
 
+      genJetMatch_ = 0;
+
+   for (unsigned int iGenJet = 0; iGenJet < genJets->size() ; ++iGenJet){
+     reco::GenJetRef genJet(genJets, iGenJet);
+     if (reco::deltaR(genJet->eta(),genJet->phi(),jet.eta(),jet.phi()) < 0.4)
+	  genJetMatch_ = 1;
+   }
+
       for(auto tau : goodTaus){
-	if (reco::deltaR(tau.pfTau.eta(),tau.pfTau.phi(),jet.eta(),jet.phi()) < 0.5){
+	if (reco::deltaR(tau.pfTau.eta(),tau.pfTau.phi(),jet.eta(),jet.phi()) < 0.3){
 	  jetTauMatch_ = 1;
 	  tauPt_  = tau.pfTau.pt();
 	  tauEta_ = tau.pfTau.eta();
