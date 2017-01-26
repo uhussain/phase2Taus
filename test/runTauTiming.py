@@ -41,6 +41,8 @@ process.source = cms.Source("PoolSource",
 
 ##################################################
 # Main
+
+'''
 process.VLooseMVA = cms.EDAnalyzer("phase2TausRECO",
     vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
     taus               = cms.InputTag("hpsPFTauProducer"),
@@ -124,7 +126,7 @@ process.TightCutBased = cms.EDAnalyzer("phase2TausRECO",
     dmf                = cms.InputTag("hpsPFTauDiscriminationByDecayModeFindingOldDMs"),
     genParticles       = cms.InputTag("genParticles")
 )
-
+'''
 process.PFChargedBased = cms.EDAnalyzer("phase2TausRECO",
     vertices           = cms.InputTag("offlinePrimaryVertices4D"),#check me
     taus               = cms.InputTag("hpsPFTauProducer"),
@@ -141,13 +143,13 @@ process.PFChargedBased = cms.EDAnalyzer("phase2TausRECO",
 #Global sequence
 
 process.p = cms.Path(
-         process.VLooseMVA*
-         process.LooseMVA*
-         process.MediumMVA*
-         process.TightMVA*
-         process.LooseCutBased*
-         process.MediumCutBased*
-         process.TightCutBased*
+         #process.VLooseMVA*
+         #process.LooseMVA*
+         #process.MediumMVA*
+         #process.TightMVA*
+         #process.LooseCutBased*
+         #process.MediumCutBased*
+         #process.TightCutBased*
          process.PFChargedBased
                      )
 

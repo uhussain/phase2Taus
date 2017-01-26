@@ -36,16 +36,6 @@
 
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
 
-/*
-#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
-#include "DataFormats/PatCandidates/interface/PackedGenParticle.h"
-#include "DataFormats/PatCandidates/interface/Electron.h"
-#include "DataFormats/PatCandidates/interface/Photon.h"
-#include "DataFormats/PatCandidates/interface/Muon.h"
-#include "DataFormats/PatCandidates/interface/Tau.h"
-#include "DataFormats/PatCandidates/interface/Jet.h"
-#include "DataFormats/PatCandidates/interface/MET.h"
-*/
 
 #include "DataFormats/Provenance/interface/EventAuxiliary.h"
 #include "DataFormats/TauReco/interface/PFTauDiscriminator.h"
@@ -77,6 +67,10 @@
 struct customPFTau{
   reco::PFTau pfTau;
   float chargedIso;
+  float signalTracksMatchTimeSlice;
+  int goodThreeProngTauT3;
+  int goodThreeProngTauT4;
+  std::vector<reco::PFCandidatePtr> signalCharged_;
   std::vector<reco::PFCandidatePtr> isoCharged_;
   std::vector<reco::PFCandidatePtr> isoChargedT1_;
   std::vector<reco::PFCandidatePtr> isoChargedT2_;
@@ -131,6 +125,8 @@ private:
   int jetTauMatch_;
   int genJetMatch_;
   int vtxIndex_;
+  int good3ProngT3_;
+  int good3ProngT4_;
   bool cutByDiscriminator_;
 
   reco::Candidate::LorentzVector GetVisibleP4(std::vector<const reco::GenParticle*>& daughters);
@@ -148,6 +144,13 @@ private:
 			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt5, 
 			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt6
 			      );
+
+  void checkThreeProngTau(customPFTau tau,
+			  int vtx_index,
+			  std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3,
+			  std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt4,
+			  bool &matchT3,
+			  bool &matchT4);
 
 void calculateIsoQuantities(customPFTau tau,
 			    int vtx_index,
@@ -217,6 +220,8 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    tree->Branch("genTauPt",     &genTauPt_,    "genTauPt_/D"     );
    tree->Branch("genTauEta",    &genTauEta_,   "genTauEta_/D"    );
    tree->Branch("genTauMatch",  &genTauMatch_, "genTauMatch_/I"  );
+   tree->Branch("good3ProngT3", &good3ProngT3_,"good3ProngT3__/I");
+   tree->Branch("good3ProngT4", &good3ProngT4_,"good3ProngT4__/I");
    tree->Branch("nvtx",         &nvtx_,        "nvtx_/I"         );
    tree->Branch("vtxX",         &vtxX_,        "vtxX_/D"         );
    tree->Branch("vtxY",         &vtxY_,        "vtxY_/D"         );
@@ -242,6 +247,8 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    jetTree->Branch("jetEta",       &jetEta_,      "jetEta_/D"       );
    jetTree->Branch("jetTauMatch",  &jetTauMatch_, "jetTauMatch_/I"  );
    jetTree->Branch("genJetMatch",  &genJetMatch_, "genJetMatch_/I"  );
+   jetTree->Branch("good3ProngT3", &good3ProngT3_,"good3ProngT3__/I");
+   jetTree->Branch("good3ProngT4", &good3ProngT4_,"good3ProngT4__/I");
    jetTree->Branch("nvtx",         &nvtx_,        "nvtx_/I"         );
    jetTree->Branch("vtxX",         &vtxX_,        "vtxX_/D"         );
    jetTree->Branch("vtxY",         &vtxY_,        "vtxY_/D"         );
@@ -347,6 +354,7 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    std::vector<reco::PFJet> Jets;
    for (unsigned int iJet = 0; iJet < JetObjects->size() ; ++iJet){
      reco::PFJetRef jetCand(JetObjects, iJet);
+     if(jetCand->pt() < 18 )continue;
      bool isATau=false;
      for(auto genTau : GenTaus){
        std::vector<const reco::GenParticle*> genTauDaughters;
@@ -371,6 +379,28 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	   customPFTau tempCPFTau;
 	   tempCPFTau.pfTau = *tauCandidate;
 	   tempCPFTau.chargedIso = (*chargedDiscriminator)[tauCandidate];
+	   ///check three prong tau code
+	   //get the matched vertex
+	   int vtx_index = -1;
+	   // find the 4D vertex this tau is best associated to..
+	   float max_weight = 0.f;
+	   
+	   for( unsigned i = 0; i < vtxs->size(); ++i ) {
+	     const auto& vtx = (*vtxs)[i];      
+	     const float weight = vtx.trackWeight(tempCPFTau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
+	     if( weight > max_weight ) {
+	       max_weight = weight;
+	       vtx_index = i;
+	     }
+	   }
+	   
+	   //check if 3 prong tau tracks all come from the same time slice
+	   bool goodThreeProngT3 = false;
+	   bool goodThreeProngT4 = false;       
+	   
+	   if(tempCPFTau.pfTau.decayMode()==10)
+	 checkThreeProngTau(tempCPFTau,vtx_index,vertices_to_tracks_zt3,vertices_to_tracks_zt4,goodThreeProngT3,goodThreeProngT4);
+	   //////// finish three prong tau code
 	   
 	   for( auto const & cand : tauCandidate->isolationPFChargedHadrCands() ){
 	     tempCPFTau.isoCharged_.push_back(cand);}
@@ -386,6 +416,32 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	   
 	   for( auto const & cand : tauCandidate->isolationPFChargedHadrCands() ) 
 	     tempCPFTau.isoCharged_.push_back(cand);
+
+
+	   ///check three prong tau code
+	   //get the matched vertex
+	   int vtx_index = -1;
+	   // find the 4D vertex this tau is best associated to..
+	   float max_weight = 0.f;
+	   
+	   for( unsigned i = 0; i < vtxs->size(); ++i ) {
+	     const auto& vtx = (*vtxs)[i];      
+	     const float weight = vtx.trackWeight(tempCPFTau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
+	     if( weight > max_weight ) {
+	       max_weight = weight;
+	       vtx_index = i;
+	     }
+	   }
+	   
+	   //check if 3 prong tau tracks all come from the same time slice
+	   bool goodThreeProngT3 = false;
+	   bool goodThreeProngT4 = false;       
+	   
+	   if(tempCPFTau.pfTau.decayMode()==10)
+	 checkThreeProngTau(tempCPFTau,vtx_index,vertices_to_tracks_zt3,vertices_to_tracks_zt4,goodThreeProngT3,goodThreeProngT4);
+	   //////// finish three prong tau code
+
+
 	   
 	   goodTaus.push_back(tempCPFTau);
 	 }
@@ -414,6 +470,8 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       PFChargedT4_=0;
       PFChargedT5_=0;
       PFChargedT6_=0;
+      good3ProngT3_=0;
+      good3ProngT4_=0;
 
       std::vector<const reco::GenParticle*> genTauDaughters;
       findDaughters(genTau, genTauDaughters);
@@ -429,6 +487,9 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  tauEta_ = tau.pfTau.eta();
 	  dmf_    = tau.pfTau.decayMode();
 	  PFCharged_ = tau.chargedIso;
+	  good3ProngT3_ = tau.goodThreeProngTauT3;
+	  good3ProngT4_ = tau.goodThreeProngTauT4;
+
 	  //goodReco_ = (bool) tau.pfTau.tauID(tauID_) >0.5;
 
 	  //get the matched vertex
@@ -510,6 +571,8 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
       PFChargedT4_=0;
       PFChargedT5_=0;
       PFChargedT6_=0;
+      good3ProngT3_=0; 
+      good3ProngT4_=0;
 
       genJetMatch_ = 0;
 
@@ -526,6 +589,9 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  tauEta_ = tau.pfTau.eta();
 	  dmf_    = tau.pfTau.decayMode();
 	  PFCharged_ = tau.chargedIso;
+	  good3ProngT3_ = tau.goodThreeProngTauT3;
+	  good3ProngT4_ = tau.goodThreeProngTauT4;
+
 	  //goodReco_ = (bool) tau.pfTau.tauID(tauID_) >0.5;
 
 	  //get the matched vertex
@@ -712,6 +778,58 @@ bool phase2TausRECO::initializeTrackTiming( edm::Handle<edm::View<reco::Track> >
   }
   return true;
 }
+
+void phase2TausRECO::checkThreeProngTau(customPFTau tau, 
+					int vtx_index,
+					std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3, 
+					std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt4,
+					bool &matchT3,
+					bool &matchT4){
+  
+  const auto tracks_zt3 = vertices_to_tracks_zt3.equal_range(vtx_index);
+  const auto tracks_zt4 = vertices_to_tracks_zt4.equal_range(vtx_index);
+
+  matchT3 = false;
+  matchT4 = false;
+
+  //create tauSignalTrack
+  //timeslice 3
+  int total = 0;
+  total = tau.signalCharged_.size();
+  
+  int i = 0;
+  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt3.first; iTrack!=tracks_zt3.second; ++iTrack){
+    for(auto chargedCand : tau.signalCharged_){
+      if(iTrack->second.key() == chargedCand->trackRef().key() ){
+	i++;
+      }
+    }
+  }
+  if(i == total)
+    matchT3 = true;
+  else if(i>total)
+    std::cout<<"matched tracks is greater than the number of signal tracks"<<std::endl;
+
+  //std::cout<<" track map size "<<i<<std::endl;
+  i=0;
+  //timeslice 4
+  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt4.first; iTrack!=tracks_zt4.second; ++iTrack){
+    for(auto chargedCand : tau.signalCharged_){
+      if(iTrack->second.key() == chargedCand->trackRef().key() ){
+	i++;
+      }
+    }
+  }
+
+  if(i == total)
+    matchT4 = true;
+  else if(i>total)
+    std::cout<<"matched tracks is greater than the number of signal tracks"<<std::endl;
+  
+  
+}
+					
+
 
 void phase2TausRECO::calculateIsoQuantities(customPFTau tau,
 			    int vtx_index,
