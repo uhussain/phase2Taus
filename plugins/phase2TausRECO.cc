@@ -117,6 +117,7 @@ private:
   double PFChargedT4_;
   double PFChargedT5_;
   double PFChargedT6_;
+  bool isPV;
 
   int nvtx_;
   int dmf_;
@@ -144,6 +145,8 @@ private:
 			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt5, 
 			      std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt6
 			      );
+
+  double VtxPtSum(int vtx_i,std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z); 
 
   void checkThreeProngTau(customPFTau tau,
 			  int vtx_index,
@@ -238,7 +241,7 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    tree->Branch("PFChargedT4",  &PFChargedT4_, "PFChargedT4_/D"  );
    tree->Branch("PFChargedT5",  &PFChargedT5_, "PFChargedT5_/D"  );
    tree->Branch("PFChargedT6",  &PFChargedT6_, "PFChargedT6_/D"  );
-
+   tree->Branch("isPV",&isPV);
 
    jetTree = fs->make<TTree>(      "jetNtuple",   "jetNtuple"       );
    jetTree->Branch("tauPt",        &tauPt_,       "tauPt_/D"        );
@@ -265,6 +268,7 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    jetTree->Branch("PFChargedT4",  &PFChargedT4_, "PFChargedT4_/D"  );
    jetTree->Branch("PFChargedT5",  &PFChargedT5_, "PFChargedT5_/D"  );
    jetTree->Branch("PFChargedT6",  &PFChargedT6_, "PFChargedT6_/D"  );
+   jetTree->Branch("isPV",&isPV);
 }
 
 
@@ -384,7 +388,9 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	   int vtx_index = -1;
 	   // find the 4D vertex this tau is best associated to..
 	   float max_weight = 0.f;
-	   
+     //get the PV index
+	   //int PV_index = -1;
+     //double maxPtSum = -99; //PV has max ptSum of all its tracks within dz
 	   for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	     const auto& vtx = (*vtxs)[i];      
 	     const float weight = vtx.trackWeight(tempCPFTau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
@@ -392,8 +398,17 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	       max_weight = weight;
 	       vtx_index = i;
 	     }
+     // double ptSum = VtxPtSum(i,vertices_to_tracks_z);
+     //  if (ptSum > maxPtSum){
+     //     maxPtSum = ptSum;
+     //     PV_index = i;
+     //  }
+       
 	   }
-	   
+	 //  isPV=false;
+   //  if(vtx_index == PV_index){
+   //     isPV = true;
+   //  }
 	   //check if 3 prong tau tracks all come from the same time slice
 	   bool goodThreeProngT3 = false;
 	   bool goodThreeProngT4 = false;       
@@ -424,6 +439,8 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	   // find the 4D vertex this tau is best associated to..
 	   float max_weight = 0.f;
 	   
+	   //int PV_index = -1;
+     //double maxPtSum = -99; //PV has max ptSum of all its tracks within dz
 	   for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	     const auto& vtx = (*vtxs)[i];      
 	     const float weight = vtx.trackWeight(tempCPFTau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
@@ -431,7 +448,17 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	       max_weight = weight;
 	       vtx_index = i;
 	     }
+
+    //   double ptSum = VtxPtSum(i,vertices_to_tracks_z);
+    //   if (ptSum > maxPtSum){
+    //      maxPtSum = ptSum;
+    //      PV_index = i;
+    //   }
 	   }
+	 //  isPV=false;
+   //  if(vtx_index == PV_index){
+   //     isPV = true;
+   //  }
 	   
 	   //check if 3 prong tau tracks all come from the same time slice
 	   bool goodThreeProngT3 = false;
@@ -494,8 +521,11 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 	  //get the matched vertex
 	  int vtx_index = -1;
-	  // find the 4D vertex this muon is best associated to..
+	  // find the 4D vertex this tau is best associated to..
 	  float max_weight = 0.f;
+
+	  int PV_index = -1;
+    double maxPtSum = -99; //PV has max ptSum of all its tracks within dz
 	  for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	    const auto& vtx = (*vtxs)[i];      
 	    const float weight = vtx.trackWeight(tau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
@@ -503,7 +533,19 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	      max_weight = weight;
 	      vtx_index = i;
 	    }
-	  }
+
+      double ptSum = VtxPtSum(i,vertices_to_tracks_z); 
+      if (ptSum > maxPtSum){
+         maxPtSum = ptSum;
+         PV_index = i;
+       }
+	   }
+     std::cout<<"matched vtx_index["<<vtx_index<<"]"<<std::endl; 
+     std::cout<<"maxPtSum of vtx["<<PV_index<<"]: "<<maxPtSum<<std::endl;
+	   isPV=false;
+     if(vtx_index == PV_index){
+        isPV = true;
+     }
 	  //now do vtx variable filling
 	  vtxIndex_ = vtx_index;
 
@@ -598,6 +640,9 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  int vtx_index = -1;
 	  // find the 4D vertex this muon is best associated to..
 	  float max_weight = 0.f;
+
+	  int PV_index = -1;
+    double maxPtSum = -99; //PV has max ptSum of all its tracks within dz
 	  for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	    const auto& vtx = (*vtxs)[i];      
 	    const float weight = vtx.trackWeight(tau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
@@ -605,7 +650,20 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	      max_weight = weight;
 	      vtx_index = i;
 	    }
-	  }
+
+      double ptSum = VtxPtSum(i,vertices_to_tracks_z); 
+      if (ptSum > maxPtSum){
+         maxPtSum = ptSum;
+         PV_index = i;
+       }
+	   }
+      
+     std::cout<<"matched vtx_index["<<vtx_index<<"]"<<std::endl; 
+     std::cout<<"maxPtSum of vtx["<<PV_index<<"]: "<<maxPtSum<<std::endl;
+	   isPV=false;
+     if(vtx_index == PV_index){
+        isPV = true;
+     }
 	  //now do vtx variable filling
 	  vtxIndex_ = vtx_index;
 
@@ -703,7 +761,7 @@ void phase2TausRECO::findDaughters(const reco::GenParticle* mother, std::vector<
       findDaughters(daughter, daughters);
     }
   }
-}
+;}
 
 bool phase2TausRECO::isNeutrino(const reco::Candidate* daughter)
 {
@@ -830,7 +888,15 @@ void phase2TausRECO::checkThreeProngTau(customPFTau tau,
 }
 					
 
-
+double phase2TausRECO::VtxPtSum(int vtx_i,std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z){
+    double ptSum = -99;
+    const auto tracks_check = vertices_to_tracks_z.equal_range(vtx_i);
+	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_check.first; iTrack!=tracks_check.second; ++iTrack){
+      //reco::Track trk = *(iTrack->second());
+      ptSum+=iTrack->second->pt();
+    }
+    return ptSum;
+}
 void phase2TausRECO::calculateIsoQuantities(customPFTau tau,
 			    int vtx_index,
 			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z, 
