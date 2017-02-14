@@ -89,7 +89,8 @@ private:
   edm::InputTag  tracksTag_;
   edm::InputTag  timesTag_;
   edm::InputTag  timeResosTag_;
-  edm::EDGetTokenT<reco::VertexCollection>   vtxToken_;
+  edm::EDGetTokenT<reco::VertexCollection>   vtxToken_; 
+  edm::EDGetTokenT<std::vector<reco::Vertex> >  primaryvtxToken_;
   edm::EDGetTokenT<reco::PFTauCollection>    tauToken_;
   edm::EDGetTokenT<reco::PFJetCollection>    jetSrc_;
   edm::EDGetTokenT<reco::GenJetCollection>   genJetSrc_;
@@ -118,7 +119,7 @@ private:
   double PFChargedT5_;
   double PFChargedT6_;
   bool isPV;
-
+  bool tauIsPV;
   int nvtx_;
   int dmf_;
   int goodReco_;
@@ -148,6 +149,13 @@ private:
 
   double VtxPtSum(int vtx_i,std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z); 
 
+  void checkOneProngTau(customPFTau OneProngtau, 
+					int vtx_index_OneProng,
+					std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3, 
+					std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt4,
+					bool &matchT3,
+					bool &matchT4);
+
   void checkThreeProngTau(customPFTau tau,
 			  int vtx_index,
 			  std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3,
@@ -155,7 +163,7 @@ private:
 			  bool &matchT3,
 			  bool &matchT4);
 
-void calculateIsoQuantities(customPFTau tau,
+  void calculateIsoQuantities(customPFTau tau,
 			    int vtx_index,
 			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_z, 
 			    std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt1, 
@@ -196,7 +204,8 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
   tracksTag_       ("generalTracks",""),
   timesTag_        ("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModel"),
   timeResosTag_    ("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModelResolution"),
-  vtxToken_        (consumes<reco::VertexCollection>    (iConfig.getParameter<edm::InputTag>("vertices")      )),
+  vtxToken_        (consumes<reco::VertexCollection>    (iConfig.getParameter<edm::InputTag>("vertices"))),      
+  primaryvtxToken_  (consumes<std::vector<reco::Vertex> > (iConfig.getParameter<edm::InputTag>("PVvertices"))),
   tauToken_        (consumes<reco::PFTauCollection>     (iConfig.getParameter<edm::InputTag>("taus")          )),
   jetSrc_          (consumes<reco::PFJetCollection>     (iConfig.getParameter<edm::InputTag>("jets")          )),
   genJetSrc_       (consumes<reco::GenJetCollection>    (iConfig.getParameter<edm::InputTag>("genJets")       )),
@@ -242,7 +251,8 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    tree->Branch("PFChargedT5",  &PFChargedT5_, "PFChargedT5_/D"  );
    tree->Branch("PFChargedT6",  &PFChargedT6_, "PFChargedT6_/D"  );
    tree->Branch("isPV",&isPV);
-
+   tree->Branch("tauIsPV",&tauIsPV);
+   
    jetTree = fs->make<TTree>(      "jetNtuple",   "jetNtuple"       );
    jetTree->Branch("tauPt",        &tauPt_,       "tauPt_/D"        );
    jetTree->Branch("tauEta",       &tauEta_,      "tauEta_/D"       );
@@ -269,6 +279,7 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    jetTree->Branch("PFChargedT5",  &PFChargedT5_, "PFChargedT5_/D"  );
    jetTree->Branch("PFChargedT6",  &PFChargedT6_, "PFChargedT6_/D"  );
    jetTree->Branch("isPV",&isPV);
+   jetTree->Branch("tauIsPV",&tauIsPV);
 }
 
 
@@ -308,6 +319,10 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    if(!iEvent.getByToken(vtxToken_, vtxs))
      std::cout<<"Error getting vtxs"<<std::endl;
    nvtx_ = vtxs->size();
+   
+   Handle<std::vector<reco::Vertex> > vtxHandle;
+   if(!iEvent.getByToken(primaryvtxToken_, vtxHandle))
+     std::cout<<"Error getting primaryvtxs"<<std::endl;
 
    //get objects
    Handle<reco::PFJetCollection> JetObjects;
@@ -534,7 +549,7 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	      vtx_index = i;
 	    }
 
-      double ptSum = VtxPtSum(i,vertices_to_tracks_z); 
+      double ptSum = VtxPtSum(i,vertices_to_tracks_zt3); 
       if (ptSum > maxPtSum){
          maxPtSum = ptSum;
          PV_index = i;
@@ -548,6 +563,17 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
      }
 	  //now do vtx variable filling
 	  vtxIndex_ = vtx_index;
+
+    //check if this is one of the primaryVtxs
+    tauIsPV = false;
+    int j;
+    for(unsigned i=0;i<vtxHandle->size();++i){
+      //const auto& pv = (*vtxHandle)[i];
+      j = i;
+      if(j==vtxIndex_){
+        tauIsPV = true;
+      }
+    }
 
 	  const reco::Vertex& vtx = (vtx_index == -1 ? (*vtxs)[0] : (*vtxs)[vtx_index]);
 	  vtxX_ = vtx.x();
@@ -651,7 +677,7 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	      vtx_index = i;
 	    }
 
-      double ptSum = VtxPtSum(i,vertices_to_tracks_z); 
+      double ptSum = VtxPtSum(i,vertices_to_tracks_zt3); 
       if (ptSum > maxPtSum){
          maxPtSum = ptSum;
          PV_index = i;
@@ -667,6 +693,15 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  //now do vtx variable filling
 	  vtxIndex_ = vtx_index;
 
+    tauIsPV = false;
+    int j;
+    for(unsigned i=0;i<vtxHandle->size();++i){
+      //const auto& pv = (*vtxHandle)[i];
+      j = i;
+      if(j==vtxIndex_){
+        tauIsPV = true;
+      }
+    }
 	  const reco::Vertex& vtx = (vtx_index == -1 ? (*vtxs)[0] : (*vtxs)[vtx_index]);
 	  vtxX_ = vtx.x();
 	  vtxY_ = vtx.y();
@@ -846,6 +881,57 @@ void phase2TausRECO::checkThreeProngTau(customPFTau tau,
   
   const auto tracks_zt3 = vertices_to_tracks_zt3.equal_range(vtx_index);
   const auto tracks_zt4 = vertices_to_tracks_zt4.equal_range(vtx_index);
+
+  matchT3 = false;
+  matchT4 = false;
+
+  //create tauSignalTrack
+  //timeslice 3
+  int total = 0;
+  total = tau.signalCharged_.size();
+  
+  int i = 0;
+  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt3.first; iTrack!=tracks_zt3.second; ++iTrack){
+    for(auto chargedCand : tau.signalCharged_){
+      if(iTrack->second.key() == chargedCand->trackRef().key() ){
+	i++;
+      }
+    }
+  }
+  if(i == total)
+    matchT3 = true;
+  else if(i>total)
+    std::cout<<"matched tracks is greater than the number of signal tracks"<<std::endl;
+
+  //std::cout<<" track map size "<<i<<std::endl;
+  i=0;
+  //timeslice 4
+  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_zt4.first; iTrack!=tracks_zt4.second; ++iTrack){
+    for(auto chargedCand : tau.signalCharged_){
+      if(iTrack->second.key() == chargedCand->trackRef().key() ){
+	i++;
+      }
+    }
+  }
+
+  if(i == total)
+    matchT4 = true;
+  else if(i>total)
+    std::cout<<"matched tracks is greater than the number of signal tracks"<<std::endl;
+  
+  
+}
+
+
+void phase2TausRECO::checkOneProngTau(customPFTau tau, 
+					int vtx_index_OneProng,
+					std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt3, 
+					std::unordered_multimap<unsigned,reco::TrackBaseRef> &vertices_to_tracks_zt4,
+					bool &matchT3,
+					bool &matchT4){
+  
+  const auto tracks_zt3 = vertices_to_tracks_zt3.equal_range(vtx_index_OneProng);
+  const auto tracks_zt4 = vertices_to_tracks_zt4.equal_range(vtx_index_OneProng);
 
   matchT3 = false;
   matchT4 = false;
