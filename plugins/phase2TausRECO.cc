@@ -118,8 +118,17 @@ private:
   double PFChargedT4_;
   double PFChargedT5_;
   double PFChargedT6_;
-  bool isPV;
+  bool isPV_zt3; 
+  bool isPV_zt4;
+  bool isPV_zt5;
+  bool isPV_zt6;
   bool tauIsPV;
+  bool tauIsPVt1;  
+  bool tauIsPVt2; 
+  bool tauIsPVt3; 
+  bool tauIsPVt4; 
+  bool tauIsPVt5; 
+  bool tauIsPVt6; 
   int nvtx_;
   int dmf_;
   int goodReco_;
@@ -250,8 +259,17 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    tree->Branch("PFChargedT4",  &PFChargedT4_, "PFChargedT4_/D"  );
    tree->Branch("PFChargedT5",  &PFChargedT5_, "PFChargedT5_/D"  );
    tree->Branch("PFChargedT6",  &PFChargedT6_, "PFChargedT6_/D"  );
-   tree->Branch("isPV",&isPV);
-   tree->Branch("tauIsPV",&tauIsPV);
+   tree->Branch("isPV_zt3",&isPV_zt3);
+   tree->Branch("isPV_zt4",&isPV_zt4);
+   tree->Branch("isPV_zt5",&isPV_zt5);
+   tree->Branch("isPV_zt6",&isPV_zt6);
+   tree->Branch("tauIsPV",&tauIsPV); 
+   tree->Branch("tauIsPVt1",&tauIsPVt1);
+   tree->Branch("tauIsPVt2",&tauIsPVt2);
+   tree->Branch("tauIsPVt3",&tauIsPVt3);
+   tree->Branch("tauIsPVt4",&tauIsPVt4);
+   tree->Branch("tauIsPVt5",&tauIsPVt5);
+   tree->Branch("tauIsPVt6",&tauIsPVt6);
    
    jetTree = fs->make<TTree>(      "jetNtuple",   "jetNtuple"       );
    jetTree->Branch("tauPt",        &tauPt_,       "tauPt_/D"        );
@@ -278,8 +296,17 @@ phase2TausRECO::phase2TausRECO(const edm::ParameterSet& iConfig):
    jetTree->Branch("PFChargedT4",  &PFChargedT4_, "PFChargedT4_/D"  );
    jetTree->Branch("PFChargedT5",  &PFChargedT5_, "PFChargedT5_/D"  );
    jetTree->Branch("PFChargedT6",  &PFChargedT6_, "PFChargedT6_/D"  );
-   jetTree->Branch("isPV",&isPV);
+   jetTree->Branch("isPV_zt3",&isPV_zt3);
+   jetTree->Branch("isPV_zt4",&isPV_zt4);
+   jetTree->Branch("isPV_zt5",&isPV_zt5);
+   jetTree->Branch("isPV_zt6",&isPV_zt6);
    jetTree->Branch("tauIsPV",&tauIsPV);
+   jetTree->Branch("tauIsPVt1",&tauIsPVt1);
+   jetTree->Branch("tauIsPVt2",&tauIsPVt2);
+   jetTree->Branch("tauIsPVt3",&tauIsPVt3);
+   jetTree->Branch("tauIsPVt4",&tauIsPVt4);
+   jetTree->Branch("tauIsPVt5",&tauIsPVt5);
+   jetTree->Branch("tauIsPVt6",&tauIsPVt6);
 }
 
 
@@ -404,7 +431,7 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	   // find the 4D vertex this tau is best associated to..
 	   float max_weight = 0.f;
      //get the PV index
-	   //int PV_index = -1;
+	   //int PV_zt3 = -1;
      //double maxPtSum = -99; //PV has max ptSum of all its tracks within dz
 	   for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	     const auto& vtx = (*vtxs)[i];      
@@ -416,13 +443,13 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
      // double ptSum = VtxPtSum(i,vertices_to_tracks_z);
      //  if (ptSum > maxPtSum){
      //     maxPtSum = ptSum;
-     //     PV_index = i;
+     //     PV_zt3 = i;
      //  }
        
 	   }
-	 //  isPV=false;
-   //  if(vtx_index == PV_index){
-   //     isPV = true;
+	 //  isPV_zt3=false;
+   //  if(vtx_index == PV_zt3){
+   //     isPV_zt3 = true;
    //  }
 	   //check if 3 prong tau tracks all come from the same time slice
 	   bool goodThreeProngT3 = false;
@@ -454,7 +481,7 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	   // find the 4D vertex this tau is best associated to..
 	   float max_weight = 0.f;
 	   
-	   //int PV_index = -1;
+	   //int PV_zt3 = -1;
      //double maxPtSum = -99; //PV has max ptSum of all its tracks within dz
 	   for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	     const auto& vtx = (*vtxs)[i];      
@@ -467,12 +494,12 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     //   double ptSum = VtxPtSum(i,vertices_to_tracks_z);
     //   if (ptSum > maxPtSum){
     //      maxPtSum = ptSum;
-    //      PV_index = i;
+    //      PV_zt3 = i;
     //   }
 	   }
-	 //  isPV=false;
-   //  if(vtx_index == PV_index){
-   //     isPV = true;
+	 //  isPV_zt3=false;
+   //  if(vtx_index == PV_zt3){
+   //     isPV_zt3 = true;
    //  }
 	   
 	   //check if 3 prong tau tracks all come from the same time slice
@@ -539,8 +566,10 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  // find the 4D vertex this tau is best associated to..
 	  float max_weight = 0.f;
 
-	  int PV_index = -1;
-    double maxPtSum = -99; //PV has max ptSum of all its tracks within dz
+    int PV_zt3,PV_zt4,PV_zt5, PV_zt6; 
+	  PV_zt3 = PV_zt4 = PV_zt5 = PV_zt6 = -1;
+    double maxPtSum_zt3, maxPtSum_zt4,maxPtSum_zt5,maxPtSum_zt6;
+    maxPtSum_zt3 =  maxPtSum_zt4 = maxPtSum_zt5 =  maxPtSum_zt6 = -99; //PV has max ptSum of all its tracks within dz
 	  for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	    const auto& vtx = (*vtxs)[i];      
 	    const float weight = vtx.trackWeight(tau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
@@ -549,28 +578,105 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	      vtx_index = i;
 	    }
 
-      double ptSum = VtxPtSum(i,vertices_to_tracks_zt3); 
-      if (ptSum > maxPtSum){
-         maxPtSum = ptSum;
-         PV_index = i;
+      double ptSum_zt3 = VtxPtSum(i,vertices_to_tracks_zt3); 
+      if (ptSum_zt3 > maxPtSum_zt3){
+         maxPtSum_zt3 = ptSum_zt3;
+         PV_zt3 = i;
+       }
+
+      double ptSum_zt4 = VtxPtSum(i,vertices_to_tracks_zt4); 
+      if (ptSum_zt4 > maxPtSum_zt4){
+         maxPtSum_zt4 = ptSum_zt4;
+         PV_zt4 = i;
+       }
+
+      double ptSum_zt5 = VtxPtSum(i,vertices_to_tracks_zt5); 
+      if (ptSum_zt5 > maxPtSum_zt5){
+         maxPtSum_zt5 = ptSum_zt5;
+         PV_zt5 = i;
+       }
+
+      double ptSum_zt6 = VtxPtSum(i,vertices_to_tracks_zt6); 
+      if (ptSum_zt6 > maxPtSum_zt6){
+         maxPtSum_zt6 = ptSum_zt6;
+         PV_zt6 = i;
        }
 	   }
      std::cout<<"matched vtx_index["<<vtx_index<<"]"<<std::endl; 
-     std::cout<<"maxPtSum of vtx["<<PV_index<<"]: "<<maxPtSum<<std::endl;
-	   isPV=false;
-     if(vtx_index == PV_index){
-        isPV = true;
+     std::cout<<"maxPtSum_zt3 of vtx["<<PV_zt3<<"]: "<<maxPtSum_zt3<<std::endl;
+     std::cout<<"maxPtSum_zt4 of vtx["<<PV_zt4<<"]: "<<maxPtSum_zt4<<std::endl;
+     std::cout<<"maxPtSum_zt5 of vtx["<<PV_zt5<<"]: "<<maxPtSum_zt5<<std::endl;
+     std::cout<<"maxPtSum_zt6 of vtx["<<PV_zt6<<"]: "<<maxPtSum_zt6<<std::endl;
+     isPV_zt3=false;
+     if(vtx_index == PV_zt3){
+        isPV_zt3 = true;
+     }
+
+	   isPV_zt4=false;
+     if(vtx_index == PV_zt4){
+        isPV_zt4 = true;
+     }
+
+	   isPV_zt5=false;
+     if(vtx_index == PV_zt5){
+        isPV_zt5 = true;
+     }
+
+	   isPV_zt6=false;
+     if(vtx_index == PV_zt6){
+        isPV_zt6 = true;
      }
 	  //now do vtx variable filling
 	  vtxIndex_ = vtx_index;
 
     //check if this is one of the primaryVtxs
     tauIsPV = false;
+    tauIsPVt1 = tauIsPVt2 = tauIsPVt3 = tauIsPVt4 = tauIsPVt5 = tauIsPVt6 = false; 
     int j;
     for(unsigned i=0;i<vtxHandle->size();++i){
-      //const auto& pv = (*vtxHandle)[i];
+      if(vtx_index!=-1){
+        const auto& pv = (*vtxHandle)[0];
+        const auto& tauVertex = (*vtxs)[vtx_index];  
+        const float dt = std::abs(pv.t() - tauVertex.t());
+
+        const bool useTime = (tauVertex.t() != 0.);
+
+        const float base_cut = std::sqrt(tauVertex.tError()*tauVertex.tError()
+				       + pv.tError()*pv.tError());
+
+        const float time_cut1 = 1.f*base_cut;
+        const float time_cut2 = 2.f*base_cut;
+        const float time_cut3 = 3.f*base_cut;
+        const float time_cut4 = 4.f*base_cut;
+        const float time_cut5 = 5.f*base_cut;
+        const float time_cut6 = 6.f*base_cut;
+
+        if(!useTime || dt < time_cut1){
+          tauIsPVt1 = true;
+        }
+
+        if(!useTime || dt < time_cut2){
+          tauIsPVt2 = true;
+        }
+
+        if(!useTime || dt < time_cut3){
+          tauIsPVt3 = true;
+        }
+
+        if(!useTime || dt < time_cut4){
+          tauIsPVt4 = true;
+        }
+
+        if(!useTime || dt < time_cut5){
+          tauIsPVt5 = true;
+        }
+
+        if(!useTime || dt < time_cut6){
+          tauIsPVt6 = true;
+        }
+      }
       j = i;
-      if(j==vtxIndex_){
+      if(j==0 && j==vtxIndex_){
         tauIsPV = true;
       }
     }
@@ -666,9 +772,10 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	  int vtx_index = -1;
 	  // find the 4D vertex this muon is best associated to..
 	  float max_weight = 0.f;
-
-	  int PV_index = -1;
-    double maxPtSum = -99; //PV has max ptSum of all its tracks within dz
+    int PV_zt3,PV_zt4,PV_zt5, PV_zt6; 
+	  PV_zt3 = PV_zt4 = PV_zt5 = PV_zt6 = -1;
+    double maxPtSum_zt3, maxPtSum_zt4,maxPtSum_zt5,maxPtSum_zt6;
+    maxPtSum_zt3 =  maxPtSum_zt4 = maxPtSum_zt5 =  maxPtSum_zt6 = -99; //PV has max ptSum of all its tracks within dz
 	  for( unsigned i = 0; i < vtxs->size(); ++i ) {
 	    const auto& vtx = (*vtxs)[i];      
 	    const float weight = vtx.trackWeight(tau.pfTau.leadPFChargedHadrCand()->trackRef());// check me -> Get track ref for charged hadron candidate
@@ -677,31 +784,104 @@ phase2TausRECO::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 	      vtx_index = i;
 	    }
 
-      double ptSum = VtxPtSum(i,vertices_to_tracks_zt3); 
-      if (ptSum > maxPtSum){
-         maxPtSum = ptSum;
-         PV_index = i;
+      double ptSum_zt3 = VtxPtSum(i,vertices_to_tracks_zt3); 
+      if (ptSum_zt3 > maxPtSum_zt3){
+         maxPtSum_zt3 = ptSum_zt3;
+         PV_zt3 = i;
        }
-	   }
-      
-     std::cout<<"matched vtx_index["<<vtx_index<<"]"<<std::endl; 
-     std::cout<<"maxPtSum of vtx["<<PV_index<<"]: "<<maxPtSum<<std::endl;
-	   isPV=false;
-     if(vtx_index == PV_index){
-        isPV = true;
+
+      double ptSum_zt4 = VtxPtSum(i,vertices_to_tracks_zt4); 
+      if (ptSum_zt4 > maxPtSum_zt4){
+         maxPtSum_zt4 = ptSum_zt4;
+         PV_zt4 = i;
+       }
+
+      double ptSum_zt5 = VtxPtSum(i,vertices_to_tracks_zt5); 
+      if (ptSum_zt5 > maxPtSum_zt5){
+         maxPtSum_zt5 = ptSum_zt5;
+         PV_zt5 = i;
+       }
+
+      double ptSum_zt6 = VtxPtSum(i,vertices_to_tracks_zt6); 
+      if (ptSum_zt6 > maxPtSum_zt6){
+         maxPtSum_zt6 = ptSum_zt6;
+         PV_zt6 = i;
+       }
+	   } 
+	   isPV_zt3=false;
+     if(vtx_index == PV_zt3){
+        isPV_zt3 = true;
+     }
+
+	   isPV_zt4=false;
+     if(vtx_index == PV_zt4){
+        isPV_zt4 = true;
+     }
+
+	   isPV_zt5=false;
+     if(vtx_index == PV_zt5){
+        isPV_zt5 = true;
+     }
+
+	   isPV_zt6=false;
+     if(vtx_index == PV_zt6){
+        isPV_zt6 = true;
      }
 	  //now do vtx variable filling
 	  vtxIndex_ = vtx_index;
 
     tauIsPV = false;
+
+    tauIsPVt1 = tauIsPVt2 = tauIsPVt3 = tauIsPVt4 = tauIsPVt5 = tauIsPVt6 = false; 
     int j;
     for(unsigned i=0;i<vtxHandle->size();++i){
-      //const auto& pv = (*vtxHandle)[i];
+      if(vtx_index!=-1){
+        const auto& pv = (*vtxHandle)[0];
+        const auto& tauVertex = (*vtxs)[vtx_index];  
+        const float dt = std::abs(pv.t() - tauVertex.t());
+
+        const bool useTime = (tauVertex.t() != 0.);
+
+        const float base_cut = std::sqrt(tauVertex.tError()*tauVertex.tError()
+				       + pv.tError()*pv.tError());
+
+        const float time_cut1 = 1.f*base_cut;
+        const float time_cut2 = 2.f*base_cut;
+        const float time_cut3 = 3.f*base_cut;
+        const float time_cut4 = 4.f*base_cut;
+        const float time_cut5 = 5.f*base_cut;
+        const float time_cut6 = 6.f*base_cut;
+
+        if(!useTime || dt < time_cut1){
+          tauIsPVt1 = true;
+        }
+
+        if(!useTime || dt < time_cut2){
+          tauIsPVt2 = true;
+        }
+
+        if(!useTime || dt < time_cut3){
+          tauIsPVt3 = true;
+        }
+
+        if(!useTime || dt < time_cut4){
+          tauIsPVt4 = true;
+        }
+
+        if(!useTime || dt < time_cut5){
+          tauIsPVt5 = true;
+        }
+
+        if(!useTime || dt < time_cut6){
+          tauIsPVt6 = true;
+        }
+      }
       j = i;
-      if(j==vtxIndex_){
+      if(j==0 && j==vtxIndex_){
         tauIsPV = true;
       }
     }
+     
 	  const reco::Vertex& vtx = (vtx_index == -1 ? (*vtxs)[0] : (*vtxs)[vtx_index]);
 	  vtxX_ = vtx.x();
 	  vtxY_ = vtx.y();
@@ -979,7 +1159,7 @@ double phase2TausRECO::VtxPtSum(int vtx_i,std::unordered_multimap<unsigned,reco:
     const auto tracks_check = vertices_to_tracks_z.equal_range(vtx_i);
 	  for (std::unordered_multimap<unsigned,reco::TrackBaseRef>::iterator iTrack = tracks_check.first; iTrack!=tracks_check.second; ++iTrack){
       //reco::Track trk = *(iTrack->second());
-      ptSum+=iTrack->second->pt();
+      ptSum+=((iTrack->second->pt())*(iTrack->second->pt()));
     }
     return ptSum;
 }
